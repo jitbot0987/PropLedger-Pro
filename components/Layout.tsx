@@ -1,11 +1,11 @@
 
-import React, { useState, ReactNode, useRef, useEffect } from 'react';
+import React, { useState, ReactNode, useRef, useEffect, useMemo } from 'react';
 import { Home, Building2, Users, Receipt, Settings, Download, Upload, AlertTriangle, PieChart, Command, Landmark, Search, FileText, Moon, Sun, FileUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Modal, Button, ToastContainer, CommandPalette } from './UI';
 import Papa from 'papaparse';
 import { Payment, PaymentType, PaymentMethod, ExpenseCategory } from '../types';
-import { getMonthKey } from '../services/financeEngine';
+import { getMonthKey, formatPHP, generateLedger } from '../services/financeEngine';
 
 interface LayoutProps {
   children?: ReactNode;
@@ -27,6 +27,7 @@ export const Layout = ({ children }: LayoutProps) => {
     removeToast,
     tenants,
     properties,
+    payments,
     bulkAddPayments,
     notify
   } = useApp();
@@ -69,32 +70,58 @@ export const Layout = ({ children }: LayoutProps) => {
   }, []);
 
   // --- Dynamic Actions for Command Palette ---
-  const baseActions = [
-    { id: 'go_dash', label: 'Go to Dashboard', icon: Home, perform: () => navigate('dashboard') },
-    { id: 'go_prop', label: 'Go to Properties', icon: Building2, perform: () => navigate('properties') },
-    { id: 'go_ten', label: 'Go to Tenants', icon: Users, perform: () => navigate('tenants') },
-    { id: 'go_fin', label: 'Go to Financing', icon: Landmark, perform: () => navigate('financing') },
-    { id: 'go_rep', label: 'Go to Reports', icon: PieChart, perform: () => navigate('reports') },
-    { id: 'act_export', label: 'Export Data Backup', icon: Download, perform: () => handleExport() },
-    { id: 'act_settings', label: 'Open Settings', icon: Settings, perform: () => setIsSettingsOpen(true) },
-    { id: 'act_theme', label: 'Toggle Dark Mode', icon: isDarkMode ? Sun : Moon, perform: () => toggleTheme() },
-  ];
+  const commandActions = useMemo(() => {
+    const baseActions = [
+      { id: 'go_dash', label: 'Go to Dashboard', icon: Home, perform: () => navigate('dashboard'), category: 'Global Actions' },
+      { id: 'go_prop', label: 'Go to Properties', icon: Building2, perform: () => navigate('properties'), category: 'Global Actions' },
+      { id: 'go_ten', label: 'Go to Tenants', icon: Users, perform: () => navigate('tenants'), category: 'Global Actions' },
+      { id: 'go_fin', label: 'Go to Financing', icon: Landmark, perform: () => navigate('financing'), category: 'Global Actions' },
+      { id: 'go_rep', label: 'Go to Reports', icon: PieChart, perform: () => navigate('reports'), category: 'Global Actions' },
+      { id: 'act_export', label: 'Export Data Backup', icon: Download, perform: () => handleExport(), category: 'Global Actions' },
+      { id: 'act_settings', label: 'Open Settings', icon: Settings, perform: () => setIsSettingsOpen(true), category: 'Global Actions' },
+      { id: 'act_theme', label: 'Toggle Dark Mode', icon: isDarkMode ? Sun : Moon, perform: () => toggleTheme(), category: 'Global Actions' },
+    ];
 
-  const tenantActions = tenants.map(t => ({
-    id: `ten_${t.id}`,
-    label: `Tenant: ${t.name}`,
-    icon: Users,
-    perform: () => navigate('tenants', t.id)
-  }));
+    const tenantActions = tenants.map(t => {
+       const ledger = generateLedger(t, payments);
+       const isOverdue = ledger.some(i => i.status === 'overdue');
+       const statusLabel = isOverdue ? '[Overdue]' : '[Paid]';
+       
+       return {
+          id: `ten_${t.id}`,
+          label: `Tenant: ${t.name} ${statusLabel}`,
+          icon: Users,
+          perform: () => navigate('tenants', t.id),
+          category: 'Tenants'
+       };
+    });
 
-  const propertyActions = properties.map(p => ({
-    id: `prop_${p.id}`,
-    label: `Property: ${p.name}`,
-    icon: Building2,
-    perform: () => navigate('properties')
-  }));
+    const propertyActions = properties.map(p => ({
+      id: `prop_${p.id}`,
+      label: `Property: ${p.name}`,
+      icon: Building2,
+      perform: () => navigate('properties'), // Properties view doesn't support deep link yet, falls back to list
+      category: 'Properties'
+    }));
 
-  const commandActions = [...baseActions, ...tenantActions, ...propertyActions];
+    // Last 50 Transactions
+    const transactionActions = payments
+       .slice(-50)
+       .reverse()
+       .map(p => {
+          const typeLabel = p.type === PaymentType.EXPENSE ? 'Expense' : 'Income';
+          const desc = p.note || (p.tenantId ? 'Rent Payment' : 'General');
+          return {
+             id: `trans_${p.id}`,
+             label: `${typeLabel}: ${formatPHP(p.amount)} - ${desc} (${p.date})`,
+             icon: Receipt,
+             perform: () => navigate('reports', p.id), // Deep link to report ledger filter
+             category: 'Transactions'
+          };
+       });
+
+    return [...baseActions, ...tenantActions, ...propertyActions, ...transactionActions];
+  }, [tenants, properties, payments, isDarkMode]);
 
   const handleExport = () => {
     const data = localStorage.getItem('prop_ledger_v1');

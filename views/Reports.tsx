@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { generateIncomeStatement, generateFinancialSummary, formatPHP, getMonthKey } from '../services/financeEngine';
 import { Card, Button, FormSelect, Modal, FormInput, Badge } from '../components/UI';
@@ -7,7 +7,7 @@ import { PaymentType, PaymentMethod, Payment } from '../types';
 import { FileText, Download, Filter, Search, Edit2, Trash2, PieChart, Table as TableIcon, List } from 'lucide-react';
 
 export const Reports = () => {
-  const { payments, properties, updatePayment, deletePayment } = useApp();
+  const { payments, properties, tenants, updatePayment, deletePayment, activeResourceId } = useApp();
   const [activeView, setActiveView] = useState<'pnl' | 'ledger' | 'summary'>('pnl');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,6 +23,15 @@ export const Reports = () => {
   const [inlineEditing, setInlineEditing] = useState<{id: string, field: 'amount' | 'note'} | null>(null);
   const [inlineValue, setInlineValue] = useState<string>('');
 
+  // --- EFFECT: Deep Linking from Global Search ---
+  useEffect(() => {
+    // If activeResourceId looks like a payment ID or import ID, switch to ledger and filter
+    if (activeResourceId && (activeResourceId.startsWith('pay_') || activeResourceId.startsWith('imp_') || activeResourceId.startsWith('exp_') || activeResourceId.startsWith('eq_'))) {
+      setActiveView('ledger');
+      setSearchTerm(activeResourceId);
+    }
+  }, [activeResourceId]);
+
   // --- DATA GENERATION ---
 
   // 1. P&L Data
@@ -34,11 +43,19 @@ export const Reports = () => {
   const filteredLedger = useMemo(() => {
     return payments
       .filter(p => {
+        // Resolve related names
+        const tenantName = tenants.find(t => t.id === p.tenantId)?.name || '';
+        const propName = properties.find(prop => prop.id === p.propertyId)?.name || '';
+        const term = searchTerm.toLowerCase();
+
         // Search Filter
         const matchesSearch = 
-          p.note?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-          p.amount.toString().includes(searchTerm) ||
-          p.monthKey?.includes(searchTerm);
+          p.id.toLowerCase().includes(term) || // Support searching by ID
+          p.note?.toLowerCase().includes(term) || 
+          p.amount.toString().includes(term) ||
+          p.monthKey?.includes(term) ||
+          tenantName.toLowerCase().includes(term) || 
+          propName.toLowerCase().includes(term);
 
         // Property Filter
         const matchesProperty = selectedPropertyFilter === 'all' || p.propertyId === selectedPropertyFilter;
@@ -46,7 +63,7 @@ export const Reports = () => {
         return matchesSearch && matchesProperty;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [payments, searchTerm, selectedPropertyFilter]);
+  }, [payments, searchTerm, selectedPropertyFilter, tenants, properties]);
 
   // 3. Summary Data (Monthly & Yearly)
   const summaryData = useMemo(() => {
@@ -97,13 +114,17 @@ export const Reports = () => {
 
   // Export filtered ledger view
   const handleExportLedger = () => {
-     const headers = ['Date,Description,Property,Type,Method,Amount'];
+     const headers = ['Date,Description,Property,Tenant,Type,Method,Amount'];
      const rows = filteredLedger.map(p => {
         const propName = properties.find(prop => prop.id === p.propertyId)?.name || 'Unknown';
+        const tenantName = tenants.find(t => t.id === p.tenantId)?.name || '';
+        
         // Clean text to avoid CSV breakage
-        const desc = (p.tenantId ? 'Rent Payment' : (p.note || 'General')).replace(/,/g, ' '); 
+        const desc = (p.note || 'General').replace(/,/g, ' '); 
         const prop = propName.replace(/,/g, ' ');
-        return `${p.date},${desc},${prop},${p.type},${p.method},${p.amount}`;
+        const tenant = tenantName.replace(/,/g, ' ');
+
+        return `${p.date},${desc},${prop},${tenant},${p.type},${p.method},${p.amount}`;
      });
 
      const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");

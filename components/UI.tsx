@@ -166,17 +166,52 @@ export const EmptyState = ({ title, description, icon: Icon, action }: EmptyStat
 );
 
 // --- Command Palette (Spotlight) ---
+interface ActionItem {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  perform: () => void;
+  category?: string;
+}
+
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
-  actions: { id: string; label: string; icon: React.ElementType; perform: () => void }[];
+  actions: ActionItem[];
 }
 
 export const CommandPalette = ({ isOpen, onClose, actions }: CommandPaletteProps) => {
   const [query, setQuery] = useState('');
   
-  // Trap focus or handle filtering
-  const filtered = actions.filter(a => a.label.toLowerCase().includes(query.toLowerCase()));
+  // Advanced Filter Logic
+  const filtered = actions.filter(a => {
+    let term = query.toLowerCase();
+    
+    // Prefix filtering
+    if (term.startsWith('@')) {
+       if (a.category !== 'Tenants') return false;
+       term = term.substring(1);
+    } else if (term.startsWith('#')) {
+       if (a.category !== 'Properties') return false;
+       term = term.substring(1);
+    } else if (term.startsWith('$')) {
+       if (a.category !== 'Transactions') return false;
+       term = term.substring(1);
+    }
+
+    return a.label.toLowerCase().includes(term);
+  });
+
+  // Group by Category
+  const grouped = filtered.reduce((acc, action) => {
+    const cat = action.category || 'Global Actions';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(action);
+    return acc;
+  }, {} as Record<string, ActionItem[]>);
+
+  // Ordered categories
+  const categoryOrder = ['Global Actions', 'Properties', 'Tenants', 'Transactions'];
 
   useEffect(() => {
     if (isOpen) {
@@ -195,7 +230,7 @@ export const CommandPalette = ({ isOpen, onClose, actions }: CommandPaletteProps
           <input 
             autoFocus
             className="w-full px-4 py-4 text-lg bg-transparent outline-none placeholder:text-slate-400 text-slate-800 dark:text-slate-100"
-            placeholder="Type a command..."
+            placeholder="Type @tenant, #property, or $transaction..."
             value={query}
             onChange={e => setQuery(e.target.value)}
           />
@@ -203,19 +238,48 @@ export const CommandPalette = ({ isOpen, onClose, actions }: CommandPaletteProps
         </div>
         <div className="overflow-y-auto p-2">
           {filtered.length === 0 && <div className="p-4 text-center text-slate-500 text-sm">No results found.</div>}
-          {filtered.map((action, idx) => (
-            <button
-              key={action.id}
-              onClick={() => { action.perform(); onClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-900 dark:hover:text-indigo-300 text-left group transition-colors focus:bg-indigo-50 dark:focus:bg-indigo-900/30 focus:outline-none"
-            >
-              <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-md text-slate-500 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                <action.icon size={18} />
-              </div>
-              <span className="font-medium text-slate-700 dark:text-slate-300 group-hover:text-indigo-900 dark:group-hover:text-indigo-300">{action.label}</span>
-              {idx === 0 && query.length > 0 && <span className="ml-auto text-xs text-slate-400 font-bold">↵ Enter</span>}
-            </button>
-          ))}
+          
+          {categoryOrder.map(cat => {
+             const items = grouped[cat];
+             if (!items) return null;
+             
+             return (
+               <Fragment key={cat}>
+                 <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{cat}</div>
+                 {items.map((action, idx) => (
+                    <button
+                      key={action.id}
+                      onClick={() => { action.perform(); onClose(); }}
+                      className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-900 dark:hover:text-indigo-300 text-left group transition-colors focus:bg-indigo-50 dark:focus:bg-indigo-900/30 focus:outline-none"
+                    >
+                      <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-md text-slate-500 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <action.icon size={18} />
+                      </div>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 group-hover:text-indigo-900 dark:group-hover:text-indigo-300">{action.label}</span>
+                    </button>
+                 ))}
+               </Fragment>
+             );
+          })}
+
+          {/* Render Any Other Categories Not in Order */}
+           {Object.keys(grouped).filter(k => !categoryOrder.includes(k)).map(cat => (
+              <Fragment key={cat}>
+                 <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{cat}</div>
+                 {grouped[cat].map((action) => (
+                    <button
+                      key={action.id}
+                      onClick={() => { action.perform(); onClose(); }}
+                      className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-900 dark:hover:text-indigo-300 text-left group transition-colors focus:bg-indigo-50 dark:focus:bg-indigo-900/30 focus:outline-none"
+                    >
+                      <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-md text-slate-500 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <action.icon size={18} />
+                      </div>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 group-hover:text-indigo-900 dark:group-hover:text-indigo-300">{action.label}</span>
+                    </button>
+                 ))}
+               </Fragment>
+           ))}
         </div>
         <div className="p-2 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 text-center uppercase font-bold tracking-wider">
           PropLedger Command
