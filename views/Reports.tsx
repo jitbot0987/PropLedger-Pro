@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { generateIncomeStatement, generateFinancialSummary, formatPHP, getMonthKey } from '../services/financeEngine';
@@ -91,6 +90,27 @@ export const Reports = () => {
     document.body.removeChild(link);
   };
 
+  // Export filtered ledger view
+  const handleExportLedger = () => {
+     const headers = ['Date,Description,Property,Type,Method,Amount'];
+     const rows = filteredLedger.map(p => {
+        const propName = properties.find(prop => prop.id === p.propertyId)?.name || 'Unknown';
+        // Clean text to avoid CSV breakage
+        const desc = (p.tenantId ? 'Rent Payment' : (p.note || 'General')).replace(/,/g, ' '); 
+        const prop = propName.replace(/,/g, ' ');
+        return `${p.date},${desc},${prop},${p.type},${p.method},${p.amount}`;
+     });
+
+     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
+     const encodedUri = encodeURI(csvContent);
+     const link = document.createElement("a");
+     link.setAttribute("href", encodedUri);
+     link.setAttribute("download", `ledger_export_${new Date().toISOString().split('T')[0]}.csv`);
+     document.body.appendChild(link);
+     link.click();
+     document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -168,7 +188,7 @@ export const Reports = () => {
                   Object.entries(pnlData.expenses).map(([category, amount]) => (
                     <div key={category} className="flex justify-between text-sm">
                       <span className="text-slate-600">{category}</span>
-                      <span className="font-medium text-slate-900">{formatPHP(amount)}</span>
+                      <span className="font-medium text-slate-900">{formatPHP(amount as number)}</span>
                     </div>
                   ))
                 ) : (
@@ -287,6 +307,12 @@ export const Reports = () => {
             <h3 className="text-lg font-bold text-slate-900">General Ledger</h3>
             
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+               <div className="hidden sm:block">
+                  <Button variant="secondary" onClick={handleExportLedger} className="text-xs h-full">
+                    <Download size={14} className="mr-2 inline" /> Export Filtered
+                  </Button>
+               </div>
+
                {/* PROPERTY FILTER */}
                <div className="relative">
                   <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />

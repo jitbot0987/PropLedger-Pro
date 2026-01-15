@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { AppProvider } from './context/AppContext';
+import React from 'react';
+import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './views/Dashboard';
 import { Properties } from './views/Properties';
@@ -9,7 +9,7 @@ import { Reports } from './views/Reports';
 import { Financing } from './views/Financing';
 
 const AppContent = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { activeTab } = useApp();
 
   const renderView = () => {
     switch(activeTab) {
@@ -23,7 +23,7 @@ const AppContent = () => {
   };
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+    <Layout>
       {renderView()}
     </Layout>
   );

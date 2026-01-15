@@ -45,6 +45,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   type?: "button" | "submit" | "reset";
+  title?: string;
 }
 
 export const Button = ({ variant = 'primary', className = '', ...props }: ButtonProps) => {

@@ -1,20 +1,28 @@
 
 import React, { useState, ReactNode, useRef, useEffect } from 'react';
-import { Home, Building2, Users, Receipt, Settings, Download, Upload, AlertTriangle, PieChart, Command, Landmark } from 'lucide-react';
+import { Home, Building2, Users, Receipt, Settings, Download, Upload, AlertTriangle, PieChart, Command, Landmark, Search, FileText } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Modal, Button, ToastContainer, CommandPalette } from './UI';
 
 interface LayoutProps {
   children?: ReactNode;
-  activeTab: string;
-  onTabChange: (tab: string) => void;
 }
 
-export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
+export const Layout = ({ children }: LayoutProps) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { refreshData, toasts, removeToast } = useApp();
+  
+  // Use Context for State & Actions
+  const { 
+    activeTab, 
+    navigate, 
+    refreshData, 
+    toasts, 
+    removeToast,
+    tenants,
+    properties 
+  } = useApp();
 
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: Home },
@@ -36,16 +44,33 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  // --- Actions for Command Palette ---
-  const commandActions = [
-    { id: 'go_dash', label: 'Go to Dashboard', icon: Home, perform: () => onTabChange('dashboard') },
-    { id: 'go_prop', label: 'Go to Properties', icon: Building2, perform: () => onTabChange('properties') },
-    { id: 'go_ten', label: 'Go to Tenants', icon: Users, perform: () => onTabChange('tenants') },
-    { id: 'go_fin', label: 'Go to Financing', icon: Landmark, perform: () => onTabChange('financing') },
-    { id: 'go_rep', label: 'Go to Reports', icon: PieChart, perform: () => onTabChange('reports') },
+  // --- Dynamic Actions for Command Palette ---
+  const baseActions = [
+    { id: 'go_dash', label: 'Go to Dashboard', icon: Home, perform: () => navigate('dashboard') },
+    { id: 'go_prop', label: 'Go to Properties', icon: Building2, perform: () => navigate('properties') },
+    { id: 'go_ten', label: 'Go to Tenants', icon: Users, perform: () => navigate('tenants') },
+    { id: 'go_fin', label: 'Go to Financing', icon: Landmark, perform: () => navigate('financing') },
+    { id: 'go_rep', label: 'Go to Reports', icon: PieChart, perform: () => navigate('reports') },
     { id: 'act_export', label: 'Export Data Backup', icon: Download, perform: () => handleExport() },
     { id: 'act_settings', label: 'Open Settings', icon: Settings, perform: () => setIsSettingsOpen(true) },
   ];
+
+  // Inject Tenants and Properties into Search
+  const tenantActions = tenants.map(t => ({
+    id: `ten_${t.id}`,
+    label: `Tenant: ${t.name}`,
+    icon: Users,
+    perform: () => navigate('tenants', t.id) // Deep link to tenant
+  }));
+
+  const propertyActions = properties.map(p => ({
+    id: `prop_${p.id}`,
+    label: `Property: ${p.name}`,
+    icon: Building2,
+    perform: () => navigate('properties') // Could be deep linked later
+  }));
+
+  const commandActions = [...baseActions, ...tenantActions, ...propertyActions];
 
   const handleExport = () => {
     const data = localStorage.getItem('prop_ledger_v1');
@@ -74,13 +99,14 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
       try {
         const json = event.target?.result as string;
         const parsed = JSON.parse(json);
-        if (!parsed.properties || !parsed.tenants) throw new Error("Invalid format");
+        // Basic schema validation
+        if (!parsed.properties || !parsed.tenants || !parsed.payments) throw new Error("Invalid format");
         
         localStorage.setItem('prop_ledger_v1', json);
         refreshData();
         setIsSettingsOpen(false);
       } catch (err) {
-        alert('Failed to import data. Invalid file format.');
+        alert('Failed to import data. Invalid file format or missing required fields.');
       }
     };
     reader.readAsText(file);
@@ -121,7 +147,7 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
             return (
               <button
                 key={item.id}
-                onClick={() => onTabChange(item.id)}
+                onClick={() => navigate(item.id)}
                 className={`group w-full flex items-center gap-4 px-4 py-3.5 text-sm font-medium rounded-xl transition-all duration-200
                   ${isActive 
                     ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-900/40 translate-x-1' 
@@ -191,7 +217,7 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
              return (
                <button 
                  key={item.id}
-                 onClick={() => onTabChange(item.id)}
+                 onClick={() => navigate(item.id)}
                  className={`flex flex-col items-center justify-center py-3 px-2 w-full transition-colors relative
                    ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}
                >

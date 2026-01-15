@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Property, PropertyType, PaymentType, PaymentMethod, Payment } from '../types';
+import { Property, PropertyType, PaymentType, PaymentMethod, Payment, ExpenseCategory } from '../types';
 import { Card, Button, Modal, FormInput, FormSelect, Badge, EmptyState } from '../components/UI';
 import { formatPHP, getMonthKey, calculatePropertyFinancials } from '../services/financeEngine';
-import { MapPin, Plus, Trash2, Edit2, DollarSign, FileMinus, CreditCard, Upload, Image as ImageIcon, Building2, TrendingUp, PieChart, Home, Briefcase, Factory, User, CheckCircle } from 'lucide-react';
+import { MapPin, Plus, Trash2, Edit2, DollarSign, FileMinus, CreditCard, Upload, Image as ImageIcon, Building2, TrendingUp, PieChart, Home, Briefcase, Factory, User, CheckCircle, TrendingDown, RefreshCcw } from 'lucide-react';
 
 export const Properties = () => {
   const { properties, addProperty, deleteProperty, payments, addPayment } = useApp();
@@ -31,7 +32,7 @@ export const Properties = () => {
   const [expenseFormData, setExpenseFormData] = useState({
     amount: 0,
     date: new Date().toISOString().split('T')[0],
-    category: 'Maintenance',
+    category: 'Maintenance' as ExpenseCategory,
     method: PaymentMethod.CASH,
     note: ''
   });
@@ -84,6 +85,19 @@ export const Properties = () => {
     }
   };
 
+  const generateRandomImage = () => {
+     // Generate a random Unsplash URL based on property type or random seed
+     const keywords = propFormData.type ? propFormData.type.toLowerCase() : 'house';
+     const randomSeed = Date.now();
+     const url = `https://source.unsplash.com/featured/?${keywords},architecture&${randomSeed}`;
+     // Note: source.unsplash.com redirects, so we use a stable placeholder service that supports keywords or just placehold.co if preferred for stability.
+     // Let's use a reliable placeholder for now since Unsplash Source is deprecated/unreliable without API key.
+     // Better alternative: picsum with seed.
+     const randomId = Math.floor(Math.random() * 50) + 10;
+     const stableUrl = `https://picsum.photos/id/${randomId}/600/400`;
+     setPropFormData({ ...propFormData, image: stableUrl });
+  };
+
   const handlePropSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -99,7 +113,7 @@ export const Properties = () => {
       address: propFormData.address!,
       type: propFormData.type!,
       purchasePrice: Number(propFormData.purchasePrice),
-      currentMarketValue: Number(propFormData.currentMarketValue),
+      currentMarketValue: Number(propFormData.currentMarketValue) || Number(propFormData.purchasePrice), // Default to purchase price if empty
       purchaseDate: propFormData.purchaseDate!,
       image: finalImage,
       downPayment: Number(propFormData.downPayment),
@@ -140,7 +154,8 @@ export const Properties = () => {
       date: expenseFormData.date,
       type: PaymentType.EXPENSE,
       method: expenseFormData.method,
-      note: `${expenseFormData.category}${expenseFormData.note ? `: ${expenseFormData.note}` : ''}`,
+      note: expenseFormData.note, // Note is now just the note
+      expenseCategory: expenseFormData.category, // Explicit category saved here
       monthKey: getMonthKey(expenseFormData.date)
     };
 
@@ -223,7 +238,8 @@ export const Properties = () => {
               isFullyPaid, 
               netIncome, 
               roi, 
-              capRate 
+              capRate,
+              valuationDelta 
             } = calculatePropertyFinancials(prop, payments);
 
             return (
@@ -249,6 +265,13 @@ export const Properties = () => {
                       <Trash2 size={16} />
                     </button>
                   </div>
+                  {/* Valuation Delta Badge */}
+                  {valuationDelta !== 0 && (
+                    <div className={`absolute bottom-2 right-2 px-2 py-1 rounded text-[10px] font-bold shadow-sm flex items-center gap-1 ${valuationDelta > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                        {valuationDelta > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                        {formatPHP(Math.abs(valuationDelta))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-5 flex-1 flex flex-col">
@@ -281,7 +304,7 @@ export const Properties = () => {
                     <span className="truncate">{prop.address}</span>
                   </div>
                   
-                  {/* KPI Grid - Adapts for Personal vs Rental */}
+                  {/* KPI Grid */}
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     <div className="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
@@ -301,11 +324,11 @@ export const Properties = () => {
                     </div>
                     <div className="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
-                         {isPersonal ? 'Mkt Value' : 'Cap Rate'}
+                         {isPersonal ? 'Value Delta' : 'Cap Rate'}
                        </div>
                        <div className="text-xs font-bold text-indigo-600">
                          {isPersonal ? (
-                            prop.currentMarketValue ? formatPHP(prop.currentMarketValue).replace('₱', '') : 'N/A'
+                            valuationDelta >= 0 ? `+${formatPHP(valuationDelta)}` : formatPHP(valuationDelta)
                          ) : (
                             `${capRate.toFixed(1)}%`
                          )}
@@ -313,9 +336,8 @@ export const Properties = () => {
                     </div>
                   </div>
 
-                  {/* Equity Section - REQUESTED FEATURE */}
+                  {/* Equity Section */}
                   <div className={`rounded-xl p-4 mt-auto border relative overflow-hidden transition-colors ${isFullyPaid ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-                    {/* Subtle Background Pattern/Icon */}
                     {isFullyPaid ? (
                        <CheckCircle className="absolute -right-3 -bottom-3 text-emerald-500 opacity-10" size={80} />
                     ) : (
@@ -353,17 +375,14 @@ export const Properties = () => {
                         <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isFullyPaid ? 'text-emerald-600' : 'text-slate-500'}`}>Total Paid</p>
                         <p className="text-xs font-bold text-emerald-600 font-mono tracking-tight">{formatPHP(totalEquityPaid)}</p>
                       </div>
-                      {isFullyPaid ? (
-                         <div className="text-right">
-                            <p className="text-[10px] text-emerald-600 font-semibold uppercase mb-0.5">Asset Value</p>
-                            <p className="text-xs font-bold text-emerald-700 font-mono tracking-tight">{formatPHP(prop.currentMarketValue || prop.purchasePrice)}</p>
-                         </div>
-                      ) : (
-                        <div className="text-right">
-                            <p className="text-[10px] text-slate-500 font-semibold uppercase mb-0.5">Remaining Bal.</p>
-                            <p className="text-xs font-bold text-rose-600 font-mono tracking-tight">{formatPHP(remainingBalance)}</p>
-                        </div>
-                      )}
+                      <div className="text-right">
+                         <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isFullyPaid ? 'text-emerald-600' : 'text-slate-500'}`}>
+                             {isFullyPaid ? 'Asset Value' : 'Remaining Bal.'}
+                         </p>
+                         <p className={`text-xs font-bold font-mono tracking-tight ${isFullyPaid ? 'text-emerald-700' : 'text-rose-600'}`}>
+                             {isFullyPaid ? formatPHP(prop.currentMarketValue || prop.purchasePrice) : formatPHP(remainingBalance)}
+                         </p>
+                      </div>
                     </div>
                   </div>
 
@@ -393,7 +412,7 @@ export const Properties = () => {
               required
             />
             
-            {/* Image Upload Section */}
+            {/* Image Upload/Generator Section */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Property Image</label>
               <div className="flex gap-2 items-center">
@@ -409,16 +428,21 @@ export const Properties = () => {
                       onChange={e => setPropFormData({...propFormData, image: e.target.value})}
                    />
                  </div>
-                 <div className="relative">
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      onChange={handleImageUpload}
-                    />
-                    <Button type="button" variant="secondary" className="px-3" title="Upload Image">
-                       <Upload size={18} />
+                 <div className="relative flex gap-1">
+                    <Button type="button" variant="secondary" className="px-3" title="Generate Random Image" onClick={generateRandomImage}>
+                        <RefreshCcw size={18} />
                     </Button>
+                    <div className="relative overflow-hidden w-[42px] h-[38px]">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          onChange={handleImageUpload}
+                        />
+                        <Button type="button" variant="secondary" className="px-3 w-full h-full" title="Upload Image">
+                          <Upload size={18} />
+                        </Button>
+                    </div>
                  </div>
               </div>
               <p className="text-xs text-slate-400 mt-1">Supported: URL or File Upload (Max 2MB)</p>
@@ -445,7 +469,7 @@ export const Properties = () => {
               />
             </div>
             
-            {/* Improved Financing Section */}
+            {/* Financing Section */}
             <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-2 mb-4 text-slate-800">
                 <div className="p-1.5 bg-white rounded-md shadow-sm text-indigo-600 border border-slate-100">
@@ -465,13 +489,12 @@ export const Properties = () => {
                   required
                   placeholder="0.00"
                 />
-                <p className="text-[10px] text-slate-400 -mt-2 mb-2 ml-1">The full purchase price as stated in the deed of sale.</p>
               </div>
 
-              {/* Show Market Value field specifically relevant for Personal types, but useful for all for tracking appreciation */}
+              {/* Explicit Market Value Field */}
               <div className="mb-4">
                  <FormInput 
-                  label="Current Market Value (PHP)" 
+                  label="Current Market Valuation (PHP)" 
                   type="number"
                   min="0"
                   step="0.01"
@@ -479,7 +502,9 @@ export const Properties = () => {
                   onChange={e => setPropFormData({...propFormData, currentMarketValue: Number(e.target.value)})}
                   placeholder="0.00"
                 />
-                 <p className="text-[10px] text-slate-400 -mt-2 ml-1">Used to calculate Appreciation ROI for personal assets.</p>
+                 <p className="text-[10px] text-slate-400 -mt-2 ml-1">
+                    Leave blank to use Purchase Price. Updated valuation is used for ROI & Portfolio stats.
+                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -493,7 +518,6 @@ export const Properties = () => {
                     onChange={e => setPropFormData({...propFormData, downPayment: Number(e.target.value)})}
                     placeholder="0.00"
                   />
-                   <p className="text-[10px] text-slate-400 -mt-2 ml-1">Initial cash paid upfront.</p>
                 </div>
                 <div>
                   <FormInput 
@@ -505,45 +529,8 @@ export const Properties = () => {
                     onChange={e => setPropFormData({...propFormData, monthlyAmortization: Number(e.target.value)})}
                     placeholder="0.00"
                   />
-                  <p className="text-[10px] text-slate-400 -mt-2 ml-1">Recurring loan payment.</p>
                 </div>
               </div>
-
-              {/* Financing Calculation Visualizer */}
-              {Number(propFormData.purchasePrice) > 0 && (
-                <div className="mt-4 bg-white p-4 rounded-lg border border-slate-200">
-                  <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Financing Structure</h5>
-                  
-                  {/* Visual Bar */}
-                  <div className="flex h-4 w-full rounded-full overflow-hidden mb-3 bg-slate-100">
-                     <div 
-                        className="bg-emerald-500 h-full transition-all duration-500 flex items-center justify-center" 
-                        style={{ width: `${Math.min(100, (Number(propFormData.downPayment || 0) / Number(propFormData.purchasePrice)) * 100)}%` }}
-                     >
-                     </div>
-                     <div className="bg-slate-300 h-full flex-1"></div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                     <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                           <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                           <span className="text-slate-500">Equity (Paid)</span>
-                        </div>
-                        <p className="font-bold text-emerald-700 pl-3.5">{formatPHP(Number(propFormData.downPayment) || 0)}</p>
-                     </div>
-                     <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                           <div className="w-2 h-2 rounded-full bg-slate-300"></div>
-                           <span className="text-slate-500">Loan Balance</span>
-                        </div>
-                        <p className="font-bold text-slate-700 pl-3.5">
-                          {formatPHP(Math.max(0, (Number(propFormData.purchasePrice) || 0) - (Number(propFormData.downPayment) || 0)))}
-                        </p>
-                     </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
           
@@ -593,7 +580,7 @@ export const Properties = () => {
 
            <div className="grid grid-cols-2 gap-4">
              <FormSelect
-                label="Category"
+                label="Expense Category"
                 options={[
                   { label: 'Maintenance / Repair', value: 'Maintenance' },
                   { label: 'Property Tax', value: 'Tax' },
@@ -601,10 +588,12 @@ export const Properties = () => {
                   { label: 'Utilities', value: 'Utilities' },
                   { label: 'Mortgage Payment', value: 'Mortgage' },
                   { label: 'HOA Dues', value: 'HOA' },
+                  { label: 'Marketing/Ads', value: 'Marketing' },
+                  { label: 'Legal/Prof. Fees', value: 'Legal' },
                   { label: 'Other', value: 'Other' },
                 ]}
                 value={expenseFormData.category}
-                onChange={e => setExpenseFormData({...expenseFormData, category: e.target.value})}
+                onChange={e => setExpenseFormData({...expenseFormData, category: e.target.value as ExpenseCategory})}
              />
              <FormInput 
                 label="Note (Optional)" 

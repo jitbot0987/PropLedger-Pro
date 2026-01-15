@@ -3,14 +3,15 @@ export enum PropertyType {
   RESIDENTIAL = 'Residential',
   COMMERCIAL = 'Commercial',
   INDUSTRIAL = 'Industrial',
-  PERSONAL = 'Personal Use', // New Type
+  PERSONAL = 'Personal Use',
 }
 
 export enum PaymentType {
   RENT = 'Rent',
   DEPOSIT = 'Deposit',
   EXPENSE = 'Expense',
-  EQUITY = 'Equity', // New type for mortgage/purchase payments
+  EQUITY = 'Equity',
+  LATE_FEE = 'Late Fee', // New Type
 }
 
 export enum PaymentMethod {
@@ -20,6 +21,18 @@ export enum PaymentMethod {
   CHEQUE = 'Cheque',
   OTHER = 'Other'
 }
+
+// Explicit Expense Categories
+export type ExpenseCategory = 
+  | 'Maintenance' 
+  | 'Tax' 
+  | 'Insurance' 
+  | 'Utilities' 
+  | 'Mortgage' 
+  | 'HOA' 
+  | 'Marketing'
+  | 'Legal'
+  | 'Other';
 
 export interface Property {
   id: string;
@@ -58,6 +71,7 @@ export interface Payment {
   method: PaymentMethod;
   note?: string;
   monthKey?: string; // YYYY-MM helper for rent mapping
+  expenseCategory?: ExpenseCategory; // New explicit field
 }
 
 export interface RentInstallment {

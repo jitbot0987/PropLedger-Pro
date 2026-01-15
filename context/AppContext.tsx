@@ -5,6 +5,11 @@ import { loadState, saveState } from '../services/storageService';
 import { ToastMessage, ToastType } from '../components/UI';
 
 interface AppContextType extends AppState {
+  // Navigation State (Lifted for Global Search)
+  activeTab: string;
+  activeResourceId: string | null; // For deep linking (e.g., opening a specific tenant)
+  navigate: (tab: string, resourceId?: string | null) => void;
+
   addProperty: (prop: Property) => void;
   deleteProperty: (id: string) => void;
   addTenant: (tenant: Tenant) => void;
@@ -29,12 +34,22 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     payments: []
   });
   
+  // Navigation State
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeResourceId, setActiveResourceId] = useState<string | null>(null);
+  
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
     const loaded = loadState();
     setState(loaded);
   }, []);
+
+  // --- Navigation Logic ---
+  const navigate = (tab: string, resourceId: string | null = null) => {
+    setActiveTab(tab);
+    setActiveResourceId(resourceId);
+  };
 
   // --- Notification Logic ---
   const notify = (message: string, type: ToastType = 'success') => {
@@ -101,7 +116,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     const newState = { ...state, payments: [...state.payments, payment] };
     setState(newState);
     saveState(newState);
-    saveState(newState);
+    // Removed duplicate saveState call here
     notify('Payment recorded successfully');
   };
 
@@ -133,7 +148,10 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
 
   return (
     <AppContext.Provider value={{ 
-      ...state, 
+      ...state,
+      activeTab,
+      activeResourceId,
+      navigate,
       addProperty, 
       deleteProperty, 
       addTenant, 

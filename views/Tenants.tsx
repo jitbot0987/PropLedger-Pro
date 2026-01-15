@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Tenant, Payment, PaymentType, RentInstallment, PaymentMethod } from '../types';
 import { Card, Button, Modal, FormInput, FormSelect, Badge } from '../components/UI';
@@ -7,7 +7,7 @@ import { generateLedger, formatPHP, getMonthKey, calculateMoveOutFinancials } fr
 import { Plus, Wallet, FileText, Smartphone, CreditCard, Banknote, ScrollText, ArrowLeft, MoreHorizontal, User, Trash2, Clock, AlertTriangle, Edit2, Landmark, LogOut, CheckCircle, Calculator } from 'lucide-react';
 
 export const Tenants = () => {
-  const { tenants, properties, payments, addTenant, updateTenant, deleteTenant, addPayment, updatePayment, deletePayment } = useApp();
+  const { tenants, properties, payments, addTenant, updateTenant, deleteTenant, addPayment, updatePayment, deletePayment, activeResourceId, navigate } = useApp();
   
   // Navigation State: 'list' or 'detail'
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
@@ -38,9 +38,21 @@ export const Tenants = () => {
   const [paymentForm, setPaymentForm] = useState<Partial<Payment>>({ 
     amount: 0, 
     date: new Date().toISOString().split('T')[0],
-    method: PaymentMethod.CASH
+    method: PaymentMethod.CASH,
+    type: PaymentType.RENT // Default
   });
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+
+  // --- DEEP LINKING EFFECT ---
+  useEffect(() => {
+    if (activeResourceId && activeResourceId.startsWith('ten_')) {
+      const tenant = tenants.find(t => t.id === activeResourceId);
+      if (tenant) {
+        setActiveTenantId(tenant.id);
+        setViewMode('detail');
+      }
+    }
+  }, [activeResourceId, tenants]);
 
   // --- DERIVED DATA ---
   const activeTenant = useMemo(() => tenants.find(t => t.id === activeTenantId), [tenants, activeTenantId]);
@@ -64,6 +76,7 @@ export const Tenants = () => {
   const handleBackToList = () => {
     setViewMode('list');
     setActiveTenantId(null);
+    if (activeResourceId) navigate('tenants', null); 
   };
 
   // --- TENANT CRUD HANDLERS ---
@@ -131,10 +144,8 @@ export const Tenants = () => {
       const { netRefundable } = moveOutFinancials;
       const finalRefundAmount = netRefundable - Number(moveOutData.deductions);
 
-      // 1. Process Deduction/Refund as Transactions
       if (moveOutData.processRefund) {
           if (finalRefundAmount > 0) {
-              // Tenant gets money back -> Record as Expense (Refund)
               addPayment({
                   id: `ref_${Date.now()}`,
                   tenantId: activeTenant.id,
@@ -146,7 +157,6 @@ export const Tenants = () => {
                   note: `Security Deposit Refund (Lease End)`
               });
           } else if (finalRefundAmount < 0) {
-              // Tenant owes money -> Record as Income (Settlement)
               addPayment({
                   id: `set_${Date.now()}`,
                   tenantId: activeTenant.id,
@@ -160,22 +170,20 @@ export const Tenants = () => {
           }
       }
 
-      // 2. Record Deductions as Income (if any) to balance the Deposit
       if (Number(moveOutData.deductions) > 0) {
-         // The deposit was money held. If we keep it for repairs, it effectively becomes income to cover the repair expense.
          addPayment({
             id: `ded_${Date.now()}`,
             tenantId: activeTenant.id,
             propertyId: activeTenant.propertyId,
             amount: Number(moveOutData.deductions),
             date: moveOutData.terminationDate,
-            type: PaymentType.EXPENSE, // Actually, usually we spend this money on repairs, so let's log the deduction note.
+            type: PaymentType.EXPENSE, 
             method: PaymentMethod.OTHER,
+            expenseCategory: 'Maintenance',
             note: `Deposit Deduction: ${moveOutData.deductionReason}`
          });
       }
 
-      // 3. Archive Tenant
       updateTenant({
           ...activeTenant,
           status: 'past',
@@ -191,7 +199,8 @@ export const Tenants = () => {
     setPaymentForm({
         amount: activeTenant?.rentAmount || 0,
         date: new Date().toISOString().split('T')[0],
-        method: PaymentMethod.CASH
+        method: PaymentMethod.CASH,
+        type: PaymentType.RENT
     });
     setIsPaymentOpen(true);
   };
@@ -215,24 +224,21 @@ export const Tenants = () => {
     const monthKey = getMonthKey(paymentForm.date!);
 
     if (editingPaymentId) {
-        // UPDATE MODE
         updatePayment({
             ...paymentForm,
             id: editingPaymentId,
             propertyId: activeTenant.propertyId,
             tenantId: activeTenant.id,
-            type: PaymentType.RENT, // Ensure type stays correct
             monthKey
         } as Payment);
     } else {
-        // ADD MODE
         addPayment({
             id: `pay_${Date.now()}`,
             tenantId: activeTenant.id,
             propertyId: activeTenant.propertyId,
             amount: Number(paymentForm.amount),
             date: paymentForm.date!,
-            type: PaymentType.RENT,
+            type: paymentForm.type || PaymentType.RENT,
             method: paymentForm.method || PaymentMethod.CASH,
             monthKey
         } as Payment);
@@ -261,7 +267,6 @@ export const Tenants = () => {
     }
   };
 
-  // Helper for Lease Status Notification
   const getLeaseStatus = (leaseEnd?: string, status?: string) => {
     if (status === 'past') return { status: 'past', label: 'Moved Out' };
     if (!leaseEnd) return null;
@@ -276,7 +281,6 @@ export const Tenants = () => {
     return null;
   };
 
-  // --- VIEW: TENANT LIST (TABLE) ---
   if (viewMode === 'list') {
     return (
       <div className="space-y-6">
@@ -316,7 +320,6 @@ export const Tenants = () => {
                         <div>
                           <span className="font-medium text-slate-900 block">{t.name}</span>
                           
-                          {/* Lease Expiration Warning */}
                           {leaseStatus?.status === 'expiring' && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md mt-0.5 border border-amber-100">
                                <Clock size={10} /> Expires in {leaseStatus.days} days
@@ -366,7 +369,7 @@ export const Tenants = () => {
           </table>
         </Card>
 
-        {/* Add/Edit Tenant Modal */}
+        {/* Tenant Modal Reused */}
         <Modal isOpen={isTenantModalOpen} onClose={() => setIsTenantModalOpen(false)} title={isEditingTenant ? "Edit Lease Details" : "Register Tenant"}>
           <form onSubmit={handleTenantSubmit}>
             <FormSelect
@@ -559,14 +562,16 @@ export const Tenants = () => {
                             </div>
                             <div>
                                <p className="text-xs font-bold text-slate-700">{pay.date}</p>
-                               <p className="text-[10px] text-slate-500 uppercase">{pay.method}</p>
+                               <div className="flex gap-1">
+                                   <span className="text-[10px] text-slate-500 uppercase">{pay.method}</span>
+                                   {pay.type === PaymentType.LATE_FEE && <span className="text-[10px] text-amber-600 font-bold uppercase">• Late Fee</span>}
+                               </div>
                             </div>
                          </div>
                          <div className="flex items-center gap-3">
                              <span className={`text-sm font-mono font-bold ${pay.type === PaymentType.EXPENSE ? 'text-rose-600' : 'text-emerald-600'}`}>
                                 {pay.type === PaymentType.EXPENSE ? '-' : '+'}{formatPHP(pay.amount)}
                              </span>
-                             {/* Only allow edit/delete if tenant is active, or if user really needs to fix history */}
                              <div className="hidden group-hover:flex gap-1">
                                 <button onClick={() => openEditPayment(pay)} className="text-slate-400 hover:text-indigo-600">
                                    <Edit2 size={14} />
@@ -590,6 +595,7 @@ export const Tenants = () => {
       {/* MOVE OUT WIZARD MODAL */}
       <Modal isOpen={isMoveOutModalOpen} onClose={() => setIsMoveOutModalOpen(false)} title={`End Lease: ${activeTenant.name}`}>
          <form onSubmit={handleMoveOutSubmit}>
+             {/* ... (Keep existing move out form) ... */}
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6 text-sm">
                 <div className="flex justify-between mb-2">
                     <span className="text-slate-500">Deposit Held:</span>
@@ -660,7 +666,7 @@ export const Tenants = () => {
       </Modal>
 
       {/* Payment Modal */}
-      <Modal isOpen={isPaymentOpen} onClose={() => setIsPaymentOpen(false)} title={editingPaymentId ? "Edit Payment" : "Record Rent Payment"}>
+      <Modal isOpen={isPaymentOpen} onClose={() => setIsPaymentOpen(false)} title={editingPaymentId ? "Edit Payment" : "Record Tenant Payment"}>
          <form onSubmit={handlePaymentSubmit}>
            <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
              <p className="text-sm text-slate-500">Tenant</p>
@@ -697,6 +703,17 @@ export const Tenants = () => {
                 onChange={e => setPaymentForm({...paymentForm, method: e.target.value as PaymentMethod})}
              />
            </div>
+
+           <FormSelect 
+                label="Payment Type"
+                options={[
+                    { label: 'Rent Payment', value: PaymentType.RENT },
+                    { label: 'Security Deposit', value: PaymentType.DEPOSIT },
+                    { label: 'Late Fee / Penalty', value: PaymentType.LATE_FEE },
+                ]}
+                value={paymentForm.type}
+                onChange={e => setPaymentForm({...paymentForm, type: e.target.value as PaymentType})}
+            />
            
            <div className="flex justify-end gap-3 mt-6">
              <Button type="button" variant="secondary" onClick={() => setIsPaymentOpen(false)}>Cancel</Button>
@@ -707,8 +724,8 @@ export const Tenants = () => {
          </form>
       </Modal>
 
-      {/* Reused Tenant Modal (Hidden unless open) */}
-       <Modal isOpen={isTenantModalOpen} onClose={() => setIsTenantModalOpen(false)} title={isEditingTenant ? "Edit Lease Details" : "Register Tenant"}>
+      {/* Tenant Details Modal */}
+      <Modal isOpen={isTenantModalOpen} onClose={() => setIsTenantModalOpen(false)} title={isEditingTenant ? "Edit Lease Details" : "Register Tenant"}>
           <form onSubmit={handleTenantSubmit}>
             <FormSelect
               label="Property Unit"
