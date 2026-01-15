@@ -50,8 +50,8 @@ export const Financing = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Financing & Equity</h2>
-        <p className="text-slate-500 mt-1 text-lg">Track your ownership progress and outstanding debts.</p>
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Financing & Equity</h2>
+        <p className="text-slate-500 dark:text-slate-400 mt-1 text-lg">Track your ownership progress and outstanding debts.</p>
       </div>
 
       {/* Summary Cards */}
@@ -59,59 +59,59 @@ export const Financing = () => {
         <Card className="p-6 border-l-4 border-indigo-500">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Market Value</p>
-              <h3 className="text-2xl font-bold text-slate-900">{formatPHP(financials.totalAssets)}</h3>
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Total Market Value</p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatPHP(financials.totalAssets)}</h3>
             </div>
-            <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
               <Landmark size={24} />
             </div>
           </div>
-          <p className="text-xs text-slate-500 mt-3">Combined current valuation</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">Combined current valuation</p>
         </Card>
 
         {/* New Valuation Delta Card */}
         <Card className={`p-6 border-l-4 ${financials.portfolioDelta >= 0 ? 'border-emerald-500' : 'border-rose-500'}`}>
            <div className="flex justify-between items-start">
              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Unrealized Gain</p>
-                <h3 className={`text-2xl font-bold ${financials.portfolioDelta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Unrealized Gain</p>
+                <h3 className={`text-2xl font-bold ${financials.portfolioDelta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
                     {financials.portfolioDelta >= 0 ? '+' : ''}{formatPHP(financials.portfolioDelta)}
                 </h3>
              </div>
-             <div className={`p-3 rounded-xl ${financials.portfolioDelta >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+             <div className={`p-3 rounded-xl ${financials.portfolioDelta >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'}`}>
                 {financials.portfolioDelta >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
              </div>
            </div>
-           <p className="text-xs text-slate-500 mt-3">Value vs. Acquisition Cost</p>
+           <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">Value vs. Acquisition Cost</p>
         </Card>
 
         <Card className="p-6 border-l-4 border-emerald-500">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Equity</p>
-              <h3 className="text-2xl font-bold text-slate-900">{formatPHP(financials.totalEquity)}</h3>
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Total Equity</p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatPHP(financials.totalEquity)}</h3>
             </div>
-            <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400">
               <ShieldCheck size={24} />
             </div>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-4 overflow-hidden">
+          <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mt-4 overflow-hidden">
              <div className="bg-emerald-500 h-full" style={{ width: `${(financials.totalEquity / (financials.totalAssets || 1)) * 100}%` }}></div>
           </div>
-          <p className="text-xs text-slate-500 mt-1">{(financials.totalEquity / (financials.totalAssets || 1) * 100).toFixed(1)}% Ownership</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{(financials.totalEquity / (financials.totalAssets || 1) * 100).toFixed(1)}% Ownership</p>
         </Card>
 
         <Card className="p-6 border-l-4 border-rose-500">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Debt</p>
-              <h3 className="text-2xl font-bold text-slate-900">{formatPHP(financials.totalDebt)}</h3>
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Total Debt</p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatPHP(financials.totalDebt)}</h3>
             </div>
-            <div className="p-3 bg-rose-50 rounded-xl text-rose-600">
+            <div className="p-3 bg-rose-50 dark:bg-rose-900/30 rounded-xl text-rose-600 dark:text-rose-400">
               <Wallet size={24} />
             </div>
           </div>
-          <p className="text-xs text-slate-500 mt-3">Remaining mortgage balance</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">Remaining mortgage balance</p>
         </Card>
       </div>
 
@@ -119,12 +119,12 @@ export const Financing = () => {
         
         {/* Detailed Table */}
         <Card className="lg:col-span-2 overflow-hidden">
-           <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-             <h3 className="font-bold text-slate-800">Portfolio Breakdown</h3>
+           <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+             <h3 className="font-bold text-slate-800 dark:text-white">Portfolio Breakdown</h3>
            </div>
            <div className="overflow-x-auto">
              <table className="w-full text-left border-collapse">
-               <thead className="bg-slate-50 text-slate-500 font-semibold text-xs uppercase tracking-wider">
+               <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold text-xs uppercase tracking-wider">
                  <tr>
                    <th className="p-4">Property</th>
                    <th className="p-4 text-right">Acquisition</th>
@@ -133,29 +133,29 @@ export const Financing = () => {
                    <th className="p-4 text-center w-32">Ownership</th>
                  </tr>
                </thead>
-               <tbody className="divide-y divide-slate-100 text-sm">
+               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
                  {financials.details.map(item => (
-                   <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                   <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                      <td className="p-4">
-                       <div className="font-bold text-slate-900">{item.name}</div>
-                       <div className="text-xs text-slate-500">{item.type}</div>
+                       <div className="font-bold text-slate-900 dark:text-slate-200">{item.name}</div>
+                       <div className="text-xs text-slate-500 dark:text-slate-400">{item.type}</div>
                      </td>
-                     <td className="p-4 text-right font-mono text-slate-600">
+                     <td className="p-4 text-right font-mono text-slate-600 dark:text-slate-400">
                        {formatPHP(item.purchasePrice)}
                      </td>
-                     <td className="p-4 text-right font-medium text-slate-900">
+                     <td className="p-4 text-right font-medium text-slate-900 dark:text-slate-200">
                        {formatPHP(item.assetValue)}
                      </td>
-                     <td className={`p-4 text-right font-bold ${item.valuationDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                     <td className={`p-4 text-right font-bold ${item.valuationDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                         {item.valuationDelta !== 0 ? formatPHP(item.valuationDelta) : '-'}
                      </td>
                      <td className="p-4">
                        {item.isFullyPaid ? (
-                         <div className="flex items-center justify-center gap-1 text-emerald-600 font-bold text-xs bg-emerald-50 py-1 rounded-md border border-emerald-100">
+                         <div className="flex items-center justify-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs bg-emerald-50 dark:bg-emerald-900/30 py-1 rounded-md border border-emerald-100 dark:border-emerald-800">
                            <CheckCircle size={12} /> Full
                          </div>
                        ) : (
-                         <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
                            <div className="bg-emerald-500 h-full" style={{ width: `${item.percentPaid}%` }}></div>
                          </div>
                        )}
@@ -165,7 +165,7 @@ export const Financing = () => {
                  ))}
                  {financials.details.length === 0 && (
                    <tr>
-                     <td colSpan={5} className="p-8 text-center text-slate-500">No properties found.</td>
+                     <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">No properties found.</td>
                    </tr>
                  )}
                </tbody>
@@ -175,7 +175,7 @@ export const Financing = () => {
 
         {/* Visual Chart */}
         <Card className="p-6 flex flex-col items-center justify-center min-h-[300px]">
-           <h3 className="font-bold text-slate-800 mb-4 w-full text-left">Portfolio Structure</h3>
+           <h3 className="font-bold text-slate-800 dark:text-white mb-4 w-full text-left">Portfolio Structure</h3>
            {financials.totalAssets > 0 ? (
              <div className="w-full h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -194,7 +194,10 @@ export const Financing = () => {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <RechartsTooltip formatter={(val: number) => formatPHP(val)} />
+                    <RechartsTooltip 
+                        formatter={(val: number) => formatPHP(val)} 
+                        contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: 'rgba(30, 41, 59, 0.95)', color: '#fff' }}
+                    />
                     <Legend verticalAlign="bottom" height={36} />
                   </PieChart>
                 </ResponsiveContainer>

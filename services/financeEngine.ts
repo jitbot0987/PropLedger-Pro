@@ -1,5 +1,7 @@
 
 import { Payment, Tenant, RentInstallment, PaymentType, Property, PropertyType, ExpenseCategory } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 /**
  * Format currency to PHP
@@ -41,9 +43,6 @@ export const generateLedger = (
       endPointer = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   }
 
-  // Filter payments for this tenant that are RENT or LATE_FEE (Late fees count towards obligations in a simplified FIFO, 
-  // or typically they are separate. For this engine, we will treat Rent payments as covering Rent. 
-  // Late Fees are usually separate line items. We will keep FIFO strictly for RENT to avoid confusion).
   const tenantRentPayments = payments
     .filter(p => p.tenantId === tenant.id && p.type === PaymentType.RENT)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -114,9 +113,6 @@ export const calculateMoveOutFinancials = (tenant: Tenant, payments: Payment[]) 
   const ledger = generateLedger(tenant, payments);
   const unpaidRent = ledger.reduce((sum, row) => sum + (row.amountDue - row.amountPaid), 0);
   
-  // Note: Late Fees owed are not calculated in the Rent Ledger, they are usually ad-hoc. 
-  // We strictly check unpaid rent here.
-
   return {
     depositHeld: deposits,
     unpaidRent: unpaidRent,
@@ -188,7 +184,7 @@ export const calculatePropertyFinancials = (property: Property, payments: Paymen
 
   // --- Valuation & Depreciation ---
   const currentVal = property.currentMarketValue || property.purchasePrice;
-  const valuationDelta = currentVal - property.purchasePrice; // Positive = Appreciation, Negative = Depreciation
+  const valuationDelta = currentVal - property.purchasePrice; 
 
   // --- ROI & Income Logic ---
   const totalRevenue = propPayments
@@ -205,15 +201,12 @@ export const calculatePropertyFinancials = (property: Property, payments: Paymen
   let capRate = 0;
 
   if (isPersonal) {
-    // Appreciation ROI: (Market Value - Purchase Price) / Purchase Price
     roi = property.purchasePrice > 0 
       ? ((currentVal - property.purchasePrice) / property.purchasePrice) * 100 
       : 0;
   } else {
-    // Rental Cash-on-Cash ROI: Net Income / Total Cash Invested
     roi = totalEquityPaid > 0 ? (netIncome / totalEquityPaid) * 100 : 0;
     
-    // Annualized Cap Rate (Simplified Estimate)
     const purchaseDate = new Date(property.purchaseDate);
     const now = new Date();
     const monthsOwned = Math.max(1, (now.getFullYear() - purchaseDate.getFullYear()) * 12 + (now.getMonth() - purchaseDate.getMonth()));
@@ -230,7 +223,7 @@ export const calculatePropertyFinancials = (property: Property, payments: Paymen
     netIncome,
     roi,
     capRate,
-    valuationDelta, // Exposed for UI
+    valuationDelta,
     currentVal
   };
 };
@@ -266,7 +259,6 @@ export const generateChartData = (payments: Payment[]) => {
 
 /**
  * Generate Income Statement (P&L) Data
- * Groups data by category within a timeframe
  */
 export const generateIncomeStatement = (payments: Payment[], year: number) => {
   const yearlyPayments = payments.filter(p => new Date(p.date).getFullYear() === year);
@@ -294,14 +286,10 @@ export const generateIncomeStatement = (payments: Payment[], year: number) => {
       statement.revenue.Other += p.amount;
       statement.revenue.Total += p.amount;
     } else if (p.type === PaymentType.EXPENSE) {
-      // Use Explicit Category OR Fallback to note parsing
       let category = p.expenseCategory as string;
-      
       if (!category) {
-        // Fallback for legacy data: Format "Category: Note"
         category = p.note ? p.note.split(':')[0].trim() : 'Uncategorized';
       }
-      
       if (!statement.expenses[category]) {
         statement.expenses[category] = 0;
       }
@@ -311,12 +299,11 @@ export const generateIncomeStatement = (payments: Payment[], year: number) => {
   });
 
   statement.netIncome = statement.revenue.Total - statement.totalExpenses;
-
   return statement;
 };
 
 /**
- * Generate Aggregated Financial Summary (Monthly & Yearly)
+ * Generate Aggregated Financial Summary
  */
 export const generateFinancialSummary = (payments: Payment[]) => {
   const monthly: Record<string, { income: number; expense: number }> = {};
@@ -358,4 +345,97 @@ export const generateFinancialSummary = (payments: Payment[]) => {
   })).sort((a,b) => b.period.localeCompare(a.period));
 
   return { monthlyStats, yearlyStats };
+};
+
+/**
+ * Generate PDF Receipt using jsPDF
+ */
+export const generateReceiptPDF = (tenant: Tenant, payment: Payment, property: Property) => {
+  const doc = new jsPDF({ format: 'a5', orientation: 'landscape', unit: 'mm' });
+  const primaryColor = '#4f46e5'; // Indigo 600
+
+  // Header Background
+  doc.setFillColor(248, 250, 252); // Slate 50
+  doc.rect(0, 0, 210, 30, 'F');
+
+  // Logo / Brand
+  doc.setFontSize(18);
+  doc.setTextColor(primaryColor);
+  doc.setFont("helvetica", "bold");
+  doc.text("PropLedger", 10, 15);
+  
+  doc.setFontSize(8);
+  doc.setTextColor(100);
+  doc.text("OFFICIAL RECEIPT", 10, 22);
+
+  // Receipt Details
+  doc.setFontSize(10);
+  doc.setTextColor(0);
+  doc.text(`Receipt No: #${payment.id.slice(-6).toUpperCase()}`, 150, 15);
+  doc.text(`Date: ${payment.date}`, 150, 22);
+
+  // Content Box
+  doc.setDrawColor(226, 232, 240); // Slate 200
+  doc.rect(10, 40, 190, 80);
+
+  // From / To
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text("Received From:", 15, 50);
+  doc.text("For Property:", 100, 50);
+
+  doc.setFontSize(11);
+  doc.setTextColor(0);
+  doc.text(tenant.name, 15, 58);
+  doc.text(property.name, 100, 58);
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text(property.address, 100, 64);
+
+  // Amount
+  doc.setFillColor(241, 245, 249); // Slate 100
+  doc.roundedRect(15, 75, 180, 25, 2, 2, 'F');
+  
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text("Amount Received", 20, 85);
+  
+  doc.setFontSize(16);
+  doc.setTextColor(primaryColor);
+  doc.setFont("helvetica", "bold");
+  doc.text(formatPHP(payment.amount), 20, 95);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.setFont("helvetica", "normal");
+  doc.text("Payment Method:", 120, 85);
+  doc.setTextColor(0);
+  doc.text(payment.method, 120, 95);
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(150);
+  doc.text("This receipt is generated electronically by PropLedger Pro.", 10, 135);
+
+  doc.save(`Receipt_${payment.date}_${tenant.name.replace(/\s+/g, '_')}.pdf`);
+};
+
+/**
+ * Get Upcoming Lease Expirations
+ */
+export const getUpcomingExpirations = (tenants: Tenant[]) => {
+  const today = new Date();
+  const threshold = new Date();
+  threshold.setDate(today.getDate() + 60); // Next 60 days
+
+  return tenants
+    .filter(t => t.status === 'active' && t.leaseEnd)
+    .map(t => {
+      const endDate = new Date(t.leaseEnd!);
+      const diffTime = endDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return { ...t, daysLeft: diffDays };
+    })
+    .filter(t => t.daysLeft >= 0 && t.daysLeft <= 60)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
 };

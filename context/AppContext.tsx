@@ -18,6 +18,7 @@ interface AppContextType extends AppState {
   addPayment: (payment: Payment) => void;
   updatePayment: (payment: Payment) => void;
   deletePayment: (id: string) => void;
+  bulkAddPayments: (payments: Payment[]) => void;
   refreshData: () => void;
   // Notification System
   toasts: ToastMessage[];
@@ -116,8 +117,14 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     const newState = { ...state, payments: [...state.payments, payment] };
     setState(newState);
     saveState(newState);
-    // Removed duplicate saveState call here
     notify('Payment recorded successfully');
+  };
+
+  const bulkAddPayments = (newPayments: Payment[]) => {
+    const newState = { ...state, payments: [...state.payments, ...newPayments] };
+    setState(newState);
+    saveState(newState);
+    notify(`${newPayments.length} payments imported successfully`);
   };
 
   const updatePayment = (payment: Payment) => {
@@ -160,6 +167,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
       addPayment,
       updatePayment,
       deletePayment,
+      bulkAddPayments,
       refreshData,
       toasts,
       notify,

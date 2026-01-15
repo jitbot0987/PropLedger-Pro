@@ -1,8 +1,11 @@
 
 import React, { useState, ReactNode, useRef, useEffect } from 'react';
-import { Home, Building2, Users, Receipt, Settings, Download, Upload, AlertTriangle, PieChart, Command, Landmark, Search, FileText } from 'lucide-react';
+import { Home, Building2, Users, Receipt, Settings, Download, Upload, AlertTriangle, PieChart, Command, Landmark, Search, FileText, Moon, Sun, FileUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Modal, Button, ToastContainer, CommandPalette } from './UI';
+import Papa from 'papaparse';
+import { Payment, PaymentType, PaymentMethod, ExpenseCategory } from '../types';
+import { getMonthKey } from '../services/financeEngine';
 
 interface LayoutProps {
   children?: ReactNode;
@@ -11,7 +14,9 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   
   // Use Context for State & Actions
   const { 
@@ -21,7 +26,9 @@ export const Layout = ({ children }: LayoutProps) => {
     toasts, 
     removeToast,
     tenants,
-    properties 
+    properties,
+    bulkAddPayments,
+    notify
   } = useApp();
 
   const navItems = [
@@ -31,6 +38,23 @@ export const Layout = ({ children }: LayoutProps) => {
     { id: 'financing', label: 'Financing', icon: Landmark },
     { id: 'reports', label: 'Reports', icon: PieChart },
   ];
+
+  // --- Theme Logic ---
+  useEffect(() => {
+    if (document.documentElement.classList.contains('dark')) {
+      setIsDarkMode(true);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    if (isDarkMode) {
+      document.documentElement.classList.remove('dark');
+      setIsDarkMode(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      setIsDarkMode(true);
+    }
+  };
 
   // --- Keyboard Shortcuts ---
   useEffect(() => {
@@ -53,21 +77,21 @@ export const Layout = ({ children }: LayoutProps) => {
     { id: 'go_rep', label: 'Go to Reports', icon: PieChart, perform: () => navigate('reports') },
     { id: 'act_export', label: 'Export Data Backup', icon: Download, perform: () => handleExport() },
     { id: 'act_settings', label: 'Open Settings', icon: Settings, perform: () => setIsSettingsOpen(true) },
+    { id: 'act_theme', label: 'Toggle Dark Mode', icon: isDarkMode ? Sun : Moon, perform: () => toggleTheme() },
   ];
 
-  // Inject Tenants and Properties into Search
   const tenantActions = tenants.map(t => ({
     id: `ten_${t.id}`,
     label: `Tenant: ${t.name}`,
     icon: Users,
-    perform: () => navigate('tenants', t.id) // Deep link to tenant
+    perform: () => navigate('tenants', t.id)
   }));
 
   const propertyActions = properties.map(p => ({
     id: `prop_${p.id}`,
     label: `Property: ${p.name}`,
     icon: Building2,
-    perform: () => navigate('properties') // Could be deep linked later
+    perform: () => navigate('properties')
   }));
 
   const commandActions = [...baseActions, ...tenantActions, ...propertyActions];
@@ -90,6 +114,10 @@ export const Layout = ({ children }: LayoutProps) => {
     fileInputRef.current?.click();
   };
 
+  const handleCsvImportClick = () => {
+    csvInputRef.current?.click();
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -99,7 +127,6 @@ export const Layout = ({ children }: LayoutProps) => {
       try {
         const json = event.target?.result as string;
         const parsed = JSON.parse(json);
-        // Basic schema validation
         if (!parsed.properties || !parsed.tenants || !parsed.payments) throw new Error("Invalid format");
         
         localStorage.setItem('prop_ledger_v1', json);
@@ -113,8 +140,76 @@ export const Layout = ({ children }: LayoutProps) => {
     e.target.value = '';
   };
 
+  const handleCsvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        try {
+          const newPayments: Payment[] = [];
+          
+          results.data.forEach((row: any) => {
+            // Mapping: Date, Amount, Property Name, Category, Note
+            const date = row['Date'];
+            const amount = parseFloat(row['Amount']);
+            const propName = row['Property Name'];
+            const category = row['Category'] || 'Other';
+            const note = row['Note'] || '';
+
+            if (!date || isNaN(amount) || !propName) return; // Skip invalid rows
+
+            // Find Property
+            const prop = properties.find(p => p.name.toLowerCase() === propName.toLowerCase());
+            if (!prop) return; // Property not found, skip
+
+            // Determine Payment Type
+            let type = PaymentType.EXPENSE;
+            let expenseCategory: ExpenseCategory | undefined = undefined;
+
+            if (category.toLowerCase() === 'rent') type = PaymentType.RENT;
+            else if (category.toLowerCase() === 'deposit') type = PaymentType.DEPOSIT;
+            else {
+              // It's an expense
+              expenseCategory = category as ExpenseCategory; 
+              // Basic check if valid category, else 'Other'
+              if (!['Maintenance','Tax','Insurance','Utilities','Mortgage','HOA','Marketing','Legal','Other'].includes(expenseCategory)) {
+                 expenseCategory = 'Other';
+              }
+            }
+
+            newPayments.push({
+              id: `imp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              propertyId: prop.id,
+              amount: Math.abs(amount),
+              date: new Date(date).toISOString().split('T')[0],
+              type,
+              method: PaymentMethod.CASH, // Default
+              note,
+              expenseCategory,
+              monthKey: getMonthKey(date)
+            });
+          });
+
+          if (newPayments.length > 0) {
+            bulkAddPayments(newPayments);
+            setIsSettingsOpen(false);
+          } else {
+            notify('No valid payment records found in CSV', 'error');
+          }
+        } catch (error) {
+           console.error(error);
+           notify('Failed to parse CSV', 'error');
+        }
+      }
+    });
+    e.target.value = '';
+  };
+
   return (
-    <div className="h-screen w-screen overflow-hidden bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
+    <div className="h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row font-sans text-slate-900 dark:text-slate-100">
       {/* Toast Overlay */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
@@ -126,7 +221,7 @@ export const Layout = ({ children }: LayoutProps) => {
       />
 
       {/* Sidebar (Desktop Only) */}
-      <aside className="hidden md:flex flex-col w-72 bg-slate-900 text-slate-300 shadow-2xl relative z-30 overflow-hidden">
+      <aside className="hidden md:flex flex-col w-72 bg-slate-900 dark:bg-slate-900 text-slate-300 shadow-2xl relative z-30 overflow-hidden">
         {/* Decorative Blur Circle */}
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -162,13 +257,22 @@ export const Layout = ({ children }: LayoutProps) => {
         </nav>
 
         <div className="p-6 border-t border-slate-800/50 bg-slate-900/50 backdrop-blur-md space-y-2 relative z-10">
-           {/* Cmd+K Hint */}
            <button 
              onClick={() => setIsCommandOpen(true)}
              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-800 text-slate-400 text-xs font-bold hover:bg-slate-700 transition-colors mb-2 border border-slate-700/50"
            >
              <span className="flex items-center gap-2"><Command size={12} /> Search</span>
              <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">⌘K</span>
+           </button>
+           
+           <button 
+             onClick={toggleTheme}
+             className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-800 text-slate-400 text-xs font-bold hover:bg-slate-700 transition-colors mb-2 border border-slate-700/50"
+           >
+             <span className="flex items-center gap-2">
+                {isDarkMode ? <Sun size={12} /> : <Moon size={12} />} 
+                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+             </span>
            </button>
 
           <button 
@@ -187,16 +291,15 @@ export const Layout = ({ children }: LayoutProps) => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto h-screen bg-slate-50 relative scroll-smooth pb-24 md:pb-0">
+      <main className="flex-1 overflow-y-auto h-screen bg-slate-50 dark:bg-slate-950 relative scroll-smooth pb-24 md:pb-0">
         {/* Background Gradients */}
-        <div className="fixed top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none z-0"></div>
+        <div className="fixed top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-50/50 dark:from-indigo-900/10 to-transparent pointer-events-none z-0"></div>
         
-        {/* Mobile Header (Simplified) */}
-        <div className="md:hidden sticky top-0 z-20 glass-panel border-b border-slate-200 px-4 py-3 flex justify-between items-center">
-             <div className="flex items-center gap-2 font-bold text-slate-900">
+        <div className="md:hidden sticky top-0 z-20 glass-panel border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex justify-between items-center dark:bg-slate-900/80">
+             <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
                 <Receipt className="text-indigo-600" size={20} /> PropLedger
              </div>
-             <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-slate-100 rounded-full text-slate-600">
+             <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300">
                 <Settings size={18} />
              </button>
         </div>
@@ -208,8 +311,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation (Sticky) */}
-      <nav className="md:hidden fixed bottom-0 w-full bg-white border-t border-slate-200 z-40 pb-safe-area">
+      <nav className="md:hidden fixed bottom-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-40 pb-safe-area">
         <div className="flex justify-around items-center">
           {navItems.map((item) => {
              const Icon = item.icon;
@@ -219,7 +321,7 @@ export const Layout = ({ children }: LayoutProps) => {
                  key={item.id}
                  onClick={() => navigate(item.id)}
                  className={`flex flex-col items-center justify-center py-3 px-2 w-full transition-colors relative
-                   ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}
+                   ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}
                >
                  {isActive && (
                    <div className="absolute top-0 w-8 h-1 bg-indigo-600 rounded-b-full"></div>
@@ -235,41 +337,50 @@ export const Layout = ({ children }: LayoutProps) => {
       {/* Settings / Data Modal */}
       <Modal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} title="Data Management">
         <div className="space-y-6">
-          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex gap-4">
-             <div className="p-2 bg-indigo-100 rounded-lg h-fit text-indigo-600">
+          <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex gap-4">
+             <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg h-fit text-indigo-600 dark:text-indigo-400">
                 <AlertTriangle size={20} />
              </div>
              <div>
-               <h4 className="font-bold text-indigo-900 text-sm">Browser Storage</h4>
-               <p className="text-xs text-indigo-700 mt-1 leading-relaxed">
+               <h4 className="font-bold text-indigo-900 dark:text-indigo-200 text-sm">Browser Storage</h4>
+               <p className="text-xs text-indigo-700 dark:text-indigo-400 mt-1 leading-relaxed">
                  Your data lives in this browser's LocalStorage. It is not synced to the cloud. 
                  Please export your data regularly to avoid loss.
                </p>
              </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
              <button 
                onClick={handleExport}
-               className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50/50 hover:shadow-md transition-all group active:scale-95"
+               className="flex flex-col items-center justify-center p-4 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 hover:shadow-md transition-all group active:scale-95"
              >
-               <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <Download className="text-indigo-600" size={24} />
+               <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Download className="text-indigo-600 dark:text-indigo-300" size={20} />
                </div>
-               <span className="font-bold text-slate-700">Export Backup</span>
-               <span className="text-xs text-slate-400 mt-1">Download JSON</span>
+               <span className="font-bold text-slate-700 dark:text-slate-200 text-xs">Export</span>
              </button>
 
              <button 
                onClick={handleImportClick}
-               className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-2xl hover:border-emerald-500 hover:bg-emerald-50/50 hover:shadow-md transition-all group active:scale-95"
+               className="flex flex-col items-center justify-center p-4 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 hover:shadow-md transition-all group active:scale-95"
              >
-               <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                 <Upload className="text-emerald-600" size={24} />
+               <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                 <Upload className="text-emerald-600 dark:text-emerald-300" size={20} />
                </div>
-               <span className="font-bold text-slate-700">Restore Data</span>
-               <span className="text-xs text-slate-400 mt-1">Upload JSON</span>
+               <span className="font-bold text-slate-700 dark:text-slate-200 text-xs">Restore JSON</span>
              </button>
+
+             <button 
+               onClick={handleCsvImportClick}
+               className="flex flex-col items-center justify-center p-4 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 hover:shadow-md transition-all group active:scale-95"
+             >
+               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                 <FileUp className="text-blue-600 dark:text-blue-300" size={20} />
+               </div>
+               <span className="font-bold text-slate-700 dark:text-slate-200 text-xs">Import CSV</span>
+             </button>
+
              <input 
                type="file" 
                ref={fileInputRef} 
@@ -277,9 +388,16 @@ export const Layout = ({ children }: LayoutProps) => {
                accept=".json"
                onChange={handleFileChange}
              />
+             <input 
+               type="file" 
+               ref={csvInputRef} 
+               className="hidden" 
+               accept=".csv"
+               onChange={handleCsvChange}
+             />
           </div>
           
-          <div className="flex justify-end pt-4 border-t border-slate-100">
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <Button variant="secondary" onClick={() => setIsSettingsOpen(false)}>Close</Button>
           </div>
         </div>

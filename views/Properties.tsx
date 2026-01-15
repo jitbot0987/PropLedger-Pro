@@ -209,8 +209,8 @@ export const Properties = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Portfolio</h2>
-          <p className="text-slate-500">Manage your real estate assets and financing.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Portfolio</h2>
+          <p className="text-slate-500 dark:text-slate-400">Manage your real estate assets and financing.</p>
         </div>
         <Button onClick={openAddProperty}>
           <Plus size={16} className="inline mr-2" /> Add Property
@@ -244,7 +244,7 @@ export const Properties = () => {
 
             return (
               <Card key={prop.id} className="group hover:shadow-md transition-all flex flex-col h-full">
-                <div className="h-44 overflow-hidden relative shrink-0 bg-slate-100">
+                <div className="h-44 overflow-hidden relative shrink-0 bg-slate-100 dark:bg-slate-800">
                   <img src={prop.image} alt={prop.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute top-4 right-4">
                     <Badge type={isPersonal ? 'neutral' : 'neutral'} text={prop.type} />
@@ -252,14 +252,14 @@ export const Properties = () => {
                   <div className="absolute top-4 left-4 flex gap-2">
                      <button 
                       onClick={(e) => { e.stopPropagation(); openEditProperty(prop); }}
-                      className="p-2 bg-white/90 text-indigo-600 rounded-full hover:bg-indigo-600 hover:text-white transition-colors shadow-sm"
+                      className="p-2 bg-white/90 text-indigo-600 rounded-full hover:bg-indigo-600 hover:text-white transition-colors shadow-sm backdrop-blur-sm"
                       title="Edit Property"
                     >
                       <Edit2 size={16} />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleDelete(prop.id, prop.name); }}
-                      className="p-2 bg-white/90 text-rose-600 rounded-full hover:bg-rose-600 hover:text-white transition-colors shadow-sm"
+                      className="p-2 bg-white/90 text-rose-600 rounded-full hover:bg-rose-600 hover:text-white transition-colors shadow-sm backdrop-blur-sm"
                       title="Delete Property"
                     >
                       <Trash2 size={16} />
@@ -267,7 +267,7 @@ export const Properties = () => {
                   </div>
                   {/* Valuation Delta Badge */}
                   {valuationDelta !== 0 && (
-                    <div className={`absolute bottom-2 right-2 px-2 py-1 rounded text-[10px] font-bold shadow-sm flex items-center gap-1 ${valuationDelta > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    <div className={`absolute bottom-2 right-2 px-2 py-1 rounded text-[10px] font-bold shadow-sm flex items-center gap-1 ${valuationDelta > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/80 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/80 dark:text-rose-300'}`}>
                         {valuationDelta > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                         {formatPHP(Math.abs(valuationDelta))}
                     </div>
@@ -276,15 +276,15 @@ export const Properties = () => {
 
                 <div className="p-5 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-1">
-                    <h3 className="text-lg font-bold text-slate-900 line-clamp-1 flex items-center gap-2">
-                      <TypeIcon size={18} className="text-slate-400" />
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white line-clamp-1 flex items-center gap-2">
+                      <TypeIcon size={18} className="text-slate-400 dark:text-slate-500" />
                       {prop.name}
                     </h3>
                     <div className="flex gap-1 shrink-0">
                       {!isFullyPaid && (
                       <button 
                           onClick={() => openEquityModal(prop.id, prop.monthlyAmortization)}
-                          className="text-xs flex items-center gap-1 text-slate-600 hover:text-emerald-600 font-bold px-2 py-1 bg-slate-100 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-200"
+                          className="text-xs flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800"
                           title="Pay Mortgage/Equity"
                       >
                           <CreditCard size={12} /> Pay
@@ -292,41 +292,41 @@ export const Properties = () => {
                       )}
                       <button 
                           onClick={() => openExpenseModal(prop.id)}
-                          className="text-xs flex items-center gap-1 text-slate-600 hover:text-rose-600 font-bold px-2 py-1 bg-slate-100 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200"
+                          className="text-xs flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-800"
                           title="Record Expense"
                       >
                           <FileMinus size={12} /> Exp
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center text-slate-500 text-sm mb-4">
+                  <div className="flex items-center text-slate-500 dark:text-slate-400 text-sm mb-4">
                     <MapPin size={14} className="mr-1" />
                     <span className="truncate">{prop.address}</span>
                   </div>
                   
                   {/* KPI Grid */}
                   <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
-                       <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2 text-center border border-slate-100 dark:border-slate-700">
+                       <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-0.5">
                          {isPersonal ? 'Net Expense' : 'Net Income'}
                        </div>
-                       <div className={`text-xs font-bold ${netIncome >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                       <div className={`text-xs font-bold ${netIncome >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                           {formatPHP(netIncome)}
                        </div>
                     </div>
-                    <div className="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
-                       <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2 text-center border border-slate-100 dark:border-slate-700">
+                       <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-0.5">
                          {isPersonal ? 'Gain ROI' : 'Yield ROI'}
                        </div>
-                       <div className={`text-xs font-bold ${roi >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                       <div className={`text-xs font-bold ${roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                          {roi > 0 && '+'}{roi.toFixed(1)}%
                        </div>
                     </div>
-                    <div className="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
-                       <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2 text-center border border-slate-100 dark:border-slate-700">
+                       <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-0.5">
                          {isPersonal ? 'Value Delta' : 'Cap Rate'}
                        </div>
-                       <div className="text-xs font-bold text-indigo-600">
+                       <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
                          {isPersonal ? (
                             valuationDelta >= 0 ? `+${formatPHP(valuationDelta)}` : formatPHP(valuationDelta)
                          ) : (
@@ -337,32 +337,32 @@ export const Properties = () => {
                   </div>
 
                   {/* Equity Section */}
-                  <div className={`rounded-xl p-4 mt-auto border relative overflow-hidden transition-colors ${isFullyPaid ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`rounded-xl p-4 mt-auto border relative overflow-hidden transition-colors ${isFullyPaid ? 'bg-emerald-50/60 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
                     {isFullyPaid ? (
                        <CheckCircle className="absolute -right-3 -bottom-3 text-emerald-500 opacity-10" size={80} />
                     ) : (
-                       <PieChart className="absolute -right-2 -bottom-2 text-slate-200 opacity-20" size={64} />
+                       <PieChart className="absolute -right-2 -bottom-2 text-slate-200 dark:text-slate-700 opacity-20" size={64} />
                     )}
 
                     <div className="flex justify-between items-end mb-2 relative z-10">
                       <div>
-                         <span className={`text-[10px] font-extrabold uppercase tracking-widest ${isFullyPaid ? 'text-emerald-600' : 'text-slate-400'}`}>
+                         <span className={`text-[10px] font-extrabold uppercase tracking-widest ${isFullyPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
                             {isFullyPaid ? 'Ownership Status' : 'Equity Progress'}
                          </span>
-                         <div className={`text-lg font-bold leading-none mt-0.5 ${isFullyPaid ? 'text-emerald-700' : 'text-slate-800'}`}>
+                         <div className={`text-lg font-bold leading-none mt-0.5 ${isFullyPaid ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-800 dark:text-white'}`}>
                              {isFullyPaid ? 'Fully Paid' : `${percentPaid.toFixed(1)}%`}
                          </div>
                       </div>
                       {!isFullyPaid && (
                         <div className="text-right">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase">Purchase Price</span>
-                            <div className="text-xs font-medium text-slate-600">{formatPHP(prop.purchasePrice)}</div>
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Purchase Price</span>
+                            <div className="text-xs font-medium text-slate-600 dark:text-slate-300">{formatPHP(prop.purchasePrice)}</div>
                         </div>
                       )}
                     </div>
                     
                     {!isFullyPaid && (
-                    <div className="w-full bg-slate-200 rounded-full h-2.5 mb-3 overflow-hidden shadow-inner relative z-10">
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 mb-3 overflow-hidden shadow-inner relative z-10">
                       <div 
                         className="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full transition-all duration-1000 ease-out shadow-sm" 
                         style={{ width: `${percentPaid}%` }}
@@ -370,16 +370,16 @@ export const Properties = () => {
                     </div>
                     )}
 
-                    <div className={`grid grid-cols-2 gap-4 relative z-10 pt-2 border-t ${isFullyPaid ? 'border-emerald-200' : 'border-slate-200/60'} ${isFullyPaid ? 'mt-2' : ''}`}>
+                    <div className={`grid grid-cols-2 gap-4 relative z-10 pt-2 border-t ${isFullyPaid ? 'border-emerald-200 dark:border-emerald-800' : 'border-slate-200/60 dark:border-slate-700'} ${isFullyPaid ? 'mt-2' : ''}`}>
                       <div>
-                        <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isFullyPaid ? 'text-emerald-600' : 'text-slate-500'}`}>Total Paid</p>
-                        <p className="text-xs font-bold text-emerald-600 font-mono tracking-tight">{formatPHP(totalEquityPaid)}</p>
+                        <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isFullyPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>Total Paid</p>
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">{formatPHP(totalEquityPaid)}</p>
                       </div>
                       <div className="text-right">
-                         <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isFullyPaid ? 'text-emerald-600' : 'text-slate-500'}`}>
+                         <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isFullyPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
                              {isFullyPaid ? 'Asset Value' : 'Remaining Bal.'}
                          </p>
-                         <p className={`text-xs font-bold font-mono tracking-tight ${isFullyPaid ? 'text-emerald-700' : 'text-rose-600'}`}>
+                         <p className={`text-xs font-bold font-mono tracking-tight ${isFullyPaid ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                              {isFullyPaid ? formatPHP(prop.currentMarketValue || prop.purchasePrice) : formatPHP(remainingBalance)}
                          </p>
                       </div>
@@ -414,7 +414,7 @@ export const Properties = () => {
             
             {/* Image Upload/Generator Section */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Property Image</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Property Image</label>
               <div className="flex gap-2 items-center">
                  <div className="relative flex-1">
                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -423,7 +423,7 @@ export const Properties = () => {
                    <input 
                       type="text" 
                       placeholder="Paste URL or upload file ->" 
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                       value={propFormData.image}
                       onChange={e => setPropFormData({...propFormData, image: e.target.value})}
                    />
@@ -470,9 +470,9 @@ export const Properties = () => {
             </div>
             
             {/* Financing Section */}
-            <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-4 text-slate-800">
-                <div className="p-1.5 bg-white rounded-md shadow-sm text-indigo-600 border border-slate-100">
+            <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 text-slate-800 dark:text-white">
+                <div className="p-1.5 bg-white dark:bg-slate-700 rounded-md shadow-sm text-indigo-600 dark:text-indigo-400 border border-slate-100 dark:border-slate-600">
                   <DollarSign size={18} />
                 </div>
                 <h4 className="font-bold text-sm">Acquisition & Financing</h4>
@@ -544,7 +544,7 @@ export const Properties = () => {
       {/* --- ADD EXPENSE MODAL --- */}
       <Modal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} title="Record Property Expense">
         <form onSubmit={handleExpenseSubmit}>
-           <div className="mb-4 p-3 bg-rose-50 rounded-lg border border-rose-100 text-rose-800 text-sm flex items-start">
+           <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-900/30 rounded-lg border border-rose-100 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-sm flex items-start">
               <FileMinus className="shrink-0 mr-2 mt-0.5" size={16} />
               <p>Expenses are deducted from this property's Net Income. They are not assigned to a specific tenant.</p>
            </div>
@@ -613,7 +613,7 @@ export const Properties = () => {
       {/* --- PAY EQUITY MODAL --- */}
       <Modal isOpen={isEquityModalOpen} onClose={() => setIsEquityModalOpen(false)} title="Record Equity/Mortgage Payment">
         <form onSubmit={handleEquitySubmit}>
-           <div className="mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-100 text-emerald-800 text-sm flex items-start">
+           <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-100 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-sm flex items-start">
               <CreditCard className="shrink-0 mr-2 mt-0.5" size={16} />
               <p>This payment will increase your <strong>Equity</strong> and reduce your <strong>Remaining Balance</strong> for this property.</p>
            </div>

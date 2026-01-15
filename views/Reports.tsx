@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { generateIncomeStatement, generateFinancialSummary, formatPHP, getMonthKey } from '../services/financeEngine';
@@ -14,9 +15,13 @@ export const Reports = () => {
   // Ledger Filter State
   const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<string>('all');
 
-  // Edit Modal State
+  // Edit Modal State (Keep for full edits)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+
+  // Inline Edit State
+  const [inlineEditing, setInlineEditing] = useState<{id: string, field: 'amount' | 'note'} | null>(null);
+  const [inlineValue, setInlineValue] = useState<string>('');
 
   // --- DATA GENERATION ---
 
@@ -111,29 +116,63 @@ export const Reports = () => {
      document.body.removeChild(link);
   };
 
+  // --- INLINE EDIT HANDLERS ---
+  const startInlineEdit = (payment: Payment, field: 'amount' | 'note') => {
+    setInlineEditing({ id: payment.id, field });
+    setInlineValue(field === 'amount' ? payment.amount.toString() : (payment.note || ''));
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEditing(null);
+    setInlineValue('');
+  };
+
+  const saveInlineEdit = (payment: Payment) => {
+    if (!inlineEditing) return;
+
+    let updated = { ...payment };
+    if (inlineEditing.field === 'amount') {
+      const val = parseFloat(inlineValue);
+      if (!isNaN(val)) updated.amount = val;
+    } else {
+      updated.note = inlineValue;
+    }
+
+    updatePayment(updated);
+    setInlineEditing(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, payment: Payment) => {
+    if (e.key === 'Enter') {
+      saveInlineEdit(payment);
+    } else if (e.key === 'Escape') {
+      cancelInlineEdit();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Accounting</h2>
-          <p className="text-slate-500">Financial statements and general ledger.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Accounting</h2>
+          <p className="text-slate-500 dark:text-slate-400">Financial statements and general ledger.</p>
         </div>
-        <div className="flex bg-slate-100 p-1 rounded-xl">
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
            <button 
              onClick={() => setActiveView('pnl')}
-             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'pnl' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'pnl' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
            >
              <div className="flex items-center gap-2"><PieChart size={16} /> P&L</div>
            </button>
            <button 
              onClick={() => setActiveView('summary')}
-             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'summary' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'summary' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
            >
              <div className="flex items-center gap-2"><TableIcon size={16} /> Summary</div>
            </button>
            <button 
              onClick={() => setActiveView('ledger')}
-             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'ledger' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'ledger' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
            >
              <div className="flex items-center gap-2"><List size={16} /> Ledger</div>
            </button>
@@ -141,15 +180,15 @@ export const Reports = () => {
       </div>
 
       {activeView === 'pnl' && (
-        <Card className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <Card className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 dark:bg-slate-900 dark:border-slate-800">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Profit & Loss Statement</h3>
-              <p className="text-sm text-slate-500">Fiscal Year {selectedYear}</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Profit & Loss Statement</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Fiscal Year {selectedYear}</p>
             </div>
             <div className="flex items-center gap-2">
               <select 
-                className="px-3 py-1 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-slate-900"
+                className="px-3 py-1 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-slate-900 dark:text-slate-200"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
               >
@@ -163,50 +202,50 @@ export const Reports = () => {
           <div className="p-8 space-y-8">
             {/* Revenue Section */}
             <div>
-              <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2 mb-4">Revenue</h4>
+              <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 pb-2 mb-4">Revenue</h4>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Rental Income</span>
-                  <span className="font-medium text-slate-900">{formatPHP(pnlData.revenue.Rent)}</span>
+                  <span className="text-slate-600 dark:text-slate-300">Rental Income</span>
+                  <span className="font-medium text-slate-900 dark:text-white">{formatPHP(pnlData.revenue.Rent)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Security Deposits</span>
-                  <span className="font-medium text-slate-900">{formatPHP(pnlData.revenue.Deposit)}</span>
+                  <span className="text-slate-600 dark:text-slate-300">Security Deposits</span>
+                  <span className="font-medium text-slate-900 dark:text-white">{formatPHP(pnlData.revenue.Deposit)}</span>
                 </div>
-                <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200">
-                  <span className="font-bold text-slate-800">Total Revenue</span>
-                  <span className="font-bold text-emerald-600">{formatPHP(pnlData.revenue.Total)}</span>
+                <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200 dark:border-slate-700">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Total Revenue</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatPHP(pnlData.revenue.Total)}</span>
                 </div>
               </div>
             </div>
 
             {/* Expenses Section */}
             <div>
-              <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2 mb-4">Operating Expenses</h4>
+              <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 pb-2 mb-4">Operating Expenses</h4>
               <div className="space-y-3">
                 {Object.keys(pnlData.expenses).length > 0 ? (
                   Object.entries(pnlData.expenses).map(([category, amount]) => (
                     <div key={category} className="flex justify-between text-sm">
-                      <span className="text-slate-600">{category}</span>
-                      <span className="font-medium text-slate-900">{formatPHP(amount as number)}</span>
+                      <span className="text-slate-600 dark:text-slate-300">{category}</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{formatPHP(amount as number)}</span>
                     </div>
                   ))
                 ) : (
                   <div className="text-sm text-slate-400 italic">No expenses recorded for this period.</div>
                 )}
                 
-                <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200">
-                  <span className="font-bold text-slate-800">Total Operating Expenses</span>
-                  <span className="font-bold text-rose-600">{formatPHP(pnlData.totalExpenses)}</span>
+                <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200 dark:border-slate-700">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Total Operating Expenses</span>
+                  <span className="font-bold text-rose-600 dark:text-rose-400">{formatPHP(pnlData.totalExpenses)}</span>
                 </div>
               </div>
             </div>
 
             {/* Net Income Section */}
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="flex justify-between items-center">
-                <span className="text-base font-bold text-slate-900">Net Operating Income</span>
-                <span className={`text-xl font-bold ${pnlData.netIncome >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                <span className="text-base font-bold text-slate-900 dark:text-white">Net Operating Income</span>
+                <span className={`text-xl font-bold ${pnlData.netIncome >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
                   {formatPHP(pnlData.netIncome)}
                 </span>
               </div>
@@ -216,11 +255,11 @@ export const Reports = () => {
       )}
 
       {activeView === 'summary' && (
-        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500 dark:bg-slate-900 dark:border-slate-800">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
             <div>
-               <h3 className="text-lg font-bold text-slate-900">Financial Summary</h3>
-               <p className="text-sm text-slate-500">Aggregated Income & Expenses</p>
+               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Financial Summary</h3>
+               <p className="text-sm text-slate-500 dark:text-slate-400">Aggregated Income & Expenses</p>
             </div>
             <Button variant="secondary" onClick={handleExportSummary} className="text-xs">
                <Download size={14} className="mr-2 inline" /> Export CSV
@@ -231,12 +270,12 @@ export const Reports = () => {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Monthly Table */}
                 <div>
-                   <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                   <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
                      <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Monthly Breakdown
                    </h4>
-                   <div className="overflow-hidden border border-slate-200 rounded-xl">
+                   <div className="overflow-hidden border border-slate-200 dark:border-slate-700 rounded-xl">
                       <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                        <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">
                           <tr>
                             <th className="p-3">Period</th>
                             <th className="p-3 text-right">Income</th>
@@ -244,13 +283,13 @@ export const Reports = () => {
                             <th className="p-3 text-right">Net</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {summaryData.monthlyStats.map(row => (
-                            <tr key={row.period} className="hover:bg-slate-50">
-                              <td className="p-3 font-mono text-xs font-bold text-slate-600">{row.period}</td>
-                              <td className="p-3 text-right text-emerald-600 font-medium">+{formatPHP(row.income)}</td>
-                              <td className="p-3 text-right text-rose-600 font-medium">{row.expense > 0 ? '-' : ''}{formatPHP(row.expense)}</td>
-                              <td className={`p-3 text-right font-bold ${row.net >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>
+                            <tr key={row.period} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                              <td className="p-3 font-mono text-xs font-bold text-slate-600 dark:text-slate-300">{row.period}</td>
+                              <td className="p-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">+{formatPHP(row.income)}</td>
+                              <td className="p-3 text-right text-rose-600 dark:text-rose-400 font-medium">{row.expense > 0 ? '-' : ''}{formatPHP(row.expense)}</td>
+                              <td className={`p-3 text-right font-bold ${row.net >= 0 ? 'text-slate-800 dark:text-slate-200' : 'text-rose-600 dark:text-rose-400'}`}>
                                  {formatPHP(row.net)}
                               </td>
                             </tr>
@@ -265,12 +304,12 @@ export const Reports = () => {
 
                 {/* Yearly Table */}
                 <div>
-                   <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                   <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Annual Overview
                    </h4>
-                   <div className="overflow-hidden border border-slate-200 rounded-xl">
+                   <div className="overflow-hidden border border-slate-200 dark:border-slate-700 rounded-xl">
                       <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                        <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">
                           <tr>
                             <th className="p-3">Year</th>
                             <th className="p-3 text-right">Income</th>
@@ -278,13 +317,13 @@ export const Reports = () => {
                             <th className="p-3 text-right">Net</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {summaryData.yearlyStats.map(row => (
-                            <tr key={row.period} className="hover:bg-slate-50">
-                              <td className="p-3 font-bold text-slate-900">{row.period}</td>
-                              <td className="p-3 text-right text-emerald-600 font-medium">+{formatPHP(row.income)}</td>
-                              <td className="p-3 text-right text-rose-600 font-medium">{row.expense > 0 ? '-' : ''}{formatPHP(row.expense)}</td>
-                              <td className={`p-3 text-right font-bold ${row.net >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>
+                            <tr key={row.period} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                              <td className="p-3 font-bold text-slate-900 dark:text-slate-100">{row.period}</td>
+                              <td className="p-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">+{formatPHP(row.income)}</td>
+                              <td className="p-3 text-right text-rose-600 dark:text-rose-400 font-medium">{row.expense > 0 ? '-' : ''}{formatPHP(row.expense)}</td>
+                              <td className={`p-3 text-right font-bold ${row.net >= 0 ? 'text-slate-800 dark:text-slate-200' : 'text-rose-600 dark:text-rose-400'}`}>
                                  {formatPHP(row.net)}
                               </td>
                             </tr>
@@ -302,9 +341,9 @@ export const Reports = () => {
       )}
 
       {activeView === 'ledger' && (
-        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <h3 className="text-lg font-bold text-slate-900">General Ledger</h3>
+        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500 dark:bg-slate-900 dark:border-slate-800">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">General Ledger</h3>
             
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                <div className="hidden sm:block">
@@ -317,7 +356,7 @@ export const Reports = () => {
                <div className="relative">
                   <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <select 
-                     className="w-full sm:w-48 pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-indigo-500 appearance-none bg-white cursor-pointer hover:border-slate-300 transition-colors"
+                     className="w-full sm:w-48 pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-indigo-500 appearance-none bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer hover:border-slate-300 transition-colors"
                      value={selectedPropertyFilter}
                      onChange={(e) => setSelectedPropertyFilter(e.target.value)}
                   >
@@ -334,7 +373,7 @@ export const Reports = () => {
                 <input 
                   type="text" 
                   placeholder="Search transactions..."
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-indigo-500 transition-colors bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -343,7 +382,7 @@ export const Reports = () => {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500 font-medium">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
                 <tr>
                   <th className="p-4">Date</th>
                   <th className="p-4">Description / Note</th>
@@ -354,38 +393,67 @@ export const Reports = () => {
                   <th className="p-4 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredLedger.map((payment) => {
                   const propName = properties.find(p => p.id === payment.propertyId)?.name || '-';
                   
                   return (
-                    <tr key={payment.id} className="hover:bg-slate-50 group">
-                        <td className="p-4 text-slate-600 font-mono text-xs">{payment.date}</td>
-                        <td className="p-4">
-                        {payment.tenantId ? (
-                            <span className="text-indigo-600 font-medium">Rent Payment</span>
+                    <tr key={payment.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 group">
+                        <td className="p-4 text-slate-600 dark:text-slate-400 font-mono text-xs">{payment.date}</td>
+                        <td className="p-4" onDoubleClick={() => startInlineEdit(payment, 'note')}>
+                        {inlineEditing?.id === payment.id && inlineEditing.field === 'note' ? (
+                            <input 
+                              autoFocus
+                              className="w-full p-1 border rounded"
+                              value={inlineValue}
+                              onChange={e => setInlineValue(e.target.value)}
+                              onKeyDown={e => handleKeyDown(e, payment)}
+                              onBlur={() => saveInlineEdit(payment)}
+                            />
                         ) : (
-                            <span className="text-slate-900">{payment.note || 'General Transaction'}</span>
+                          payment.tenantId ? (
+                              <span className="text-indigo-600 dark:text-indigo-400 font-medium">Rent Payment</span>
+                          ) : (
+                              <span className="text-slate-900 dark:text-slate-200 cursor-pointer hover:underline decoration-dotted">{payment.note || 'General Transaction'}</span>
+                          )
                         )}
                         </td>
-                        <td className="p-4 text-slate-500 text-xs truncate max-w-[150px]" title={propName}>
+                        <td className="p-4 text-slate-500 dark:text-slate-400 text-xs truncate max-w-[150px]" title={propName}>
                             {propName}
                         </td>
                         <td className="p-4">
                         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium 
-                            ${payment.type === PaymentType.EXPENSE ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                            ${payment.type === PaymentType.EXPENSE ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
                             {payment.type === PaymentType.EXPENSE ? payment.note?.split(':')[0] || 'Expense' : 'Income'}
                         </span>
                         </td>
-                        <td className="p-4 text-slate-500 text-xs uppercase">{payment.method}</td>
-                        <td className={`p-4 text-right font-mono font-medium ${payment.type === PaymentType.EXPENSE ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        {payment.type === PaymentType.EXPENSE ? '-' : '+'}{formatPHP(payment.amount)}
+                        <td className="p-4 text-slate-500 dark:text-slate-400 text-xs uppercase">{payment.method}</td>
+                        
+                        <td 
+                          className={`p-4 text-right font-mono font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md ${payment.type === PaymentType.EXPENSE ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                          onDoubleClick={() => startInlineEdit(payment, 'amount')}
+                        >
+                           {inlineEditing?.id === payment.id && inlineEditing.field === 'amount' ? (
+                             <input 
+                               autoFocus
+                               type="number"
+                               className="w-24 p-1 border rounded text-right text-black"
+                               value={inlineValue}
+                               onChange={e => setInlineValue(e.target.value)}
+                               onKeyDown={e => handleKeyDown(e, payment)}
+                               onBlur={() => saveInlineEdit(payment)}
+                               onClick={e => e.stopPropagation()}
+                             />
+                           ) : (
+                             `${payment.type === PaymentType.EXPENSE ? '-' : '+'}${formatPHP(payment.amount)}`
+                           )}
                         </td>
+
                         <td className="p-4 flex justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleEditClick(payment)} className="p-1 text-slate-400 hover:text-indigo-600 transition-colors" title="Edit">
+                        <button onClick={() => handleEditClick(payment)} className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" title="Edit">
                             <Edit2 size={16} />
                         </button>
-                        <button onClick={() => handleDeleteClick(payment)} className="p-1 text-slate-400 hover:text-rose-600 transition-colors" title="Delete">
+                        <button onClick={() => handleDeleteClick(payment)} className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors" title="Delete">
                             <Trash2 size={16} />
                         </button>
                         </td>
@@ -408,9 +476,9 @@ export const Reports = () => {
       <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Transaction">
          {editingPayment && (
              <form onSubmit={handleUpdateSubmit}>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
-                    <p className="text-xs font-bold text-slate-500 uppercase">Transaction ID</p>
-                    <p className="font-mono text-xs text-slate-700">{editingPayment.id}</p>
+                <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mb-4">
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Transaction ID</p>
+                    <p className="font-mono text-xs text-slate-700 dark:text-slate-300">{editingPayment.id}</p>
                     <div className="mt-2">
                          <Badge 
                             type={editingPayment.type === PaymentType.EXPENSE ? 'danger' : 'success'} 
